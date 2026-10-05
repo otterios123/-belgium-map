@@ -175,6 +175,17 @@ body[data-theme=night] .cone{background:conic-gradient(from -32deg,rgba(111,152,
 #simBadge{position:fixed;left:12px;top:calc(var(--safe-t) + 110px);z-index:19;background:var(--star);color:#fff;border-radius:14px;padding:4px 12px;font-size:15px;border:0;box-shadow:var(--sh)}
 body.navving #simBadge{top:calc(var(--safe-t) + 112px)}
 
+#zoneBanner{position:fixed;left:10px;right:10px;max-width:560px;top:calc(var(--safe-t) + 104px);z-index:24;background:#b91c1c;color:#fff;border-radius:14px;padding:10px 14px;box-shadow:var(--sh);font-size:16px;line-height:1.3}
+body.navving #zoneBanner{top:calc(var(--safe-t) + 104px)}
+#zoneBanner .zb-btns{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+#zoneBanner a,#zoneBanner button{border:1.5px solid #fff;background:none;color:#fff;border-radius:255px 15px 225px 15px/15px 225px 15px 255px;padding:4px 12px;font-size:16px;text-decoration:none}
+#zoneBanner a{background:#fff;color:#b91c1c}
+.c-red{background:#fee2e2;border-left:4px solid #b91c1c;color:#7f1d1d;padding:8px 10px;margin:10px 0 2px;font-size:16px;line-height:1.35;border-radius:4px}
+.c-quote{font-size:15px;color:var(--paper-muted);font-style:italic;margin:8px 0 0;line-height:1.35}
+.c-quote a{color:var(--paper-ink);font-style:normal}
+.hb.red{border-color:#b91c1c;color:#b91c1c}.hb.red.fill{background:#b91c1c;color:#fff}
+.zrow{padding:8px 0;border-bottom:1px dashed var(--line)}
+.zrow b{color:#dc2626}.zrow.trap b{color:#d97706}
 #toast{position:fixed;left:50%;top:calc(var(--safe-t) + 104px);transform:translate(-50%,-14px);opacity:0;z-index:40;background:var(--hud);color:var(--hud-t);padding:9px 16px;border-radius:14px;font-size:17px;max-width:88vw;text-align:center;pointer-events:none;transition:opacity .2s,transform .2s;box-shadow:var(--sh)}
 #toast.on{opacity:1;transform:translate(-50%,0)}
 [hidden]{display:none!important}
@@ -231,6 +242,7 @@ body.navving #simBadge{top:calc(var(--safe-t) + 112px)}
     <button class="btn end" id="nbEnd">End</button>
   </div>
 </div>
+<div id="zoneBanner" role="alert" hidden><b id="zbT"></b><span id="zbS"></span><div class="zb-btns"><a id="zbUber" target="_blank" rel="noopener">Uber out</a><a id="zbTransit" target="_blank" rel="noopener" style="background:none;color:#fff">Public transport</a><button id="zbInfo">Why?</button></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <noscript>This map needs JavaScript turned on.</noscript>
 
@@ -469,6 +481,48 @@ const lerpAng=(a,b,t)=>{if(a==null)return b;const d=((b-a+540)%360)-180;return(a
 function circle(c,r){const pts=[];for(let i=0;i<=48;i++){const a=i/48*2*Math.PI;pts.push([c.lng+r*Math.sin(a)/(111320*Math.cos(c.lat*R2)),c.lat+r*Math.cos(a)/110540])}return{type:'Feature',geometry:{type:'Polygon',coordinates:[pts]}}}
 const EMPTY={type:'FeatureCollection',features:[]};
 
+/* ---------- zones: red = never routed through, trap = shown only ---------- */
+const ZONES=[
+ {id:'z_midi',kind:'red',n:'Gare du Midi (Brussels-South)',short:'Gare du Midi',lbl:[4.3352,50.8363],
+  ring:[[4.3285,50.8330],[4.3292,50.8396],[4.3365,50.8412],[4.3410,50.8390],[4.3414,50.8348],[4.3385,50.8300],[4.3320,50.8290]],
+  note:'The station and the streets around it. Often described as sketchy, especially at night. Coming by train? Get off at Brussels-Central instead.',
+  q:'Stay away from places like Midi especially at night.',src:'https://www.reddit.com/r/brussels/comments/17l6nrp/comment/k7c7rgp/'},
+ {id:'z_nord',kind:'red',n:'Gare du Nord, Rue d’Aerschot & Place Liedts',short:'Gare du Nord',lbl:[4.3665,50.8640],
+  ring:[[4.3555,50.8575],[4.3570,50.8625],[4.3640,50.8700],[4.3700,50.8722],[4.3782,50.8692],[4.3772,50.8640],[4.3692,50.8595],[4.3630,50.8565]],
+  note:'North station, Rue d’Aerschot, the eastern side of the station area and Place Liedts in Schaerbeek. Some nearby metro stops can feel unsafe after dark.',
+  q:'The eastern part of the North Station neighbourhood.',src:'https://www.reddit.com/r/BelgiumTravel/comments/1ukfom0/comment/ouvewv6/'},
+ {id:'z_cureghem',kind:'red',n:'Cureghem / Kuregem',short:'Cureghem',lbl:[4.3228,50.8385],
+  ring:[[4.3140,50.8320],[4.3150,50.8430],[4.3230,50.8470],[4.3332,50.8440],[4.3300,50.8340],[4.3220,50.8290]],
+  note:'Part of Anderlecht, west of Gare du Midi. Locals repeatedly call it a less safe area.',
+  q:'Kuregem/Cureghem is currently experiencing a major drugs crisis.',src:'https://www.reddit.com/r/BelgiumTravel/comments/1vnkh1e/comment/p3i8o80/'},
+ {id:'z_molenbeek',kind:'red',n:'Lower Molenbeek',short:'Lower Molenbeek',lbl:[4.3285,50.8545],
+  ring:[[4.3170,50.8470],[4.3334,50.8442],[4.3388,50.8524],[4.3442,50.8600],[4.3380,50.8652],[4.3200,50.8622]],
+  note:'The west bank of the canal around Place Communale. Locals say it’s fine by day if you’re careful, but not for late-night wandering. The app avoids it completely.',
+  q:'parts of Molenbeek or Schaerbeek (e.g. Place Liedts and Rue d\'Aerschot...)',src:'https://www.reddit.com/r/BelgiumTravel/comments/1ukfom0/comment/ouvwn5q/'},
+ {id:'t_bouchers',kind:'trap',n:'Rue des Bouchers',short:'Rue des Bouchers',tag:'Tourist trap, don’t eat here',
+  line:[[4.3528,50.8475],[4.3539,50.8481],[4.3548,50.8486],[4.3556,50.8491]],
+  note:'Fine to walk through and have a look, but the restaurants are expensive and low quality. Routes can still pass here.',
+  q:'Go have a look there as it\'s a touristic area, but do not eat anything in the restaurants.',src:'https://www.reddit.com/r/BelgiumTravel/comments/1ukfom0/comment/ouvoh1y/'},
+ {id:'t_neuve',kind:'trap',n:'Rue Neuve',short:'Rue Neuve',tag:'Crowded, watch for pickpockets',
+  line:[[4.3546,50.8509],[4.3553,50.8525],[4.3560,50.8541],[4.3567,50.8556]],
+  note:'Busy shopping street that many locals dislike. Keep your belongings secure here, and on public transport. Routes can still pass here.',
+  q:'Keep an eye on your belongings when travelling on public transport.',src:'https://www.reddit.com/r/brussels/comments/17l6nrp/comment/k7c7rgp/'}
+];
+const ZI=Object.fromEntries(ZONES.map(z=>[z.id,z])),RED=ZONES.filter(z=>z.kind==='red');
+function pointIn(pt,ring){let ins=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const[xi,yi]=ring[i],[xj,yj]=ring[j];if(((yi>pt[1])!==(yj>pt[1]))&&(pt[0]<(xj-xi)*(pt[1]-yi)/(yj-yi)+xi))ins=!ins}return ins}
+const zoneAt=p=>p?RED.find(z=>pointIn([p.lng,p.lat],z.ring))||null:null;
+function distToRing(p,ring){const kx=Math.cos(p.lat*R2)*111320,ky=110540;let best=1e18;
+  for(let i=0;i<ring.length;i++){const a=ring[i],b=ring[(i+1)%ring.length],ax=(a[0]-p.lng)*kx,ay=(a[1]-p.lat)*ky,bx=(b[0]-p.lng)*kx,by=(b[1]-p.lat)*ky,dx=bx-ax,dy=by-ay,L=dx*dx+dy*dy;
+    let t=L?-(ax*dx+ay*dy)/L:0;t=Math.max(0,Math.min(1,t));const x=ax+t*dx,y=ay+t*dy;best=Math.min(best,x*x+y*y)}return Math.sqrt(best)}
+RED.forEach(z=>{z.per=z.ring.reduce((s,p,i)=>s+havLL(p,z.ring[(i+1)%z.ring.length]),0);const xs=z.ring.map(p=>p[0]),ys=z.ring.map(p=>p[1]);z.bb=[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)]});
+function crossed(coords){const hit=new Set(),test=p=>{for(const z of RED)if(!hit.has(z.id)&&p[0]>=z.bb[0]&&p[0]<=z.bb[2]&&p[1]>=z.bb[1]&&p[1]<=z.bb[3]&&pointIn(p,z.ring))hit.add(z.id)};
+  for(let i=0;i<coords.length;i++){const c=coords[i];test(c);if(i){const a=coords[i-1],n=Math.ceil(havLL(a,c)/20);for(let k=1;k<n;k++)test([a[0]+(c[0]-a[0])*k/n,a[1]+(c[1]-a[1])*k/n])}}
+  return[...hit].map(id=>ZI[id])}
+const ZGJ={type:'FeatureCollection',features:ZONES.flatMap(z=>z.kind==='red'
+  ?[{type:'Feature',properties:{id:z.id,k:'red'},geometry:{type:'Polygon',coordinates:[[...z.ring,z.ring[0]]]}},{type:'Feature',properties:{id:z.id,k:'redlbl',label:z.short+'\nRed zone'},geometry:{type:'Point',coordinates:z.lbl}}]
+  :[{type:'Feature',properties:{id:z.id,k:'trap',label:z.tag},geometry:{type:'LineString',coordinates:z.line}}])};
+
+
 /* ---------- opening hours ---------- */
 const DK={0:'u',1:'m',5:'f',6:'s'};
 function openState(p,now=new Date()){
@@ -483,9 +537,9 @@ function openState(p,now=new Date()){
 
 /* ---------- map style ---------- */
 const PAL={
-  day:{bg:'#f1efe9',park:'#dde5d4',wood:'#d4dfca',water:'#bdd0ce',bld:'#e4e1d9',bld3:'#e7e4dd',minor:'#ffffff',major:'#ffffff',mot:'#fffcf3',cas:'#d8d3c7',path:'#cbc6b8',rail:'#cdc8bc',lbl:'#6f6a5f',halo:'#f7f6f2',place:'#9a8366',city:'#3d3b37',wlbl:'#6c8d8b',navc:'#2d5bd8',navcase:'#ffffff',acf:'rgba(45,91,216,.10)',acl:'rgba(45,91,216,.35)',cityUp:false},
-  slate:{bg:'#566a62',park:'#5c7167',wood:'#586d62',water:'#1e2526',bld:'#4e605a',bld3:'#50635b',minor:'#9fb4aa',major:'#c4d5cc',mot:'#d6e2db',cas:'#566a62',path:'#8aa096',rail:'#72867d',lbl:'#d9e5de',halo:'#3c4a45',place:'#e7efea',city:'#f3f7f4',wlbl:'#73857f',navc:'#ffd166',navcase:'#1e2526',acf:'rgba(255,209,102,.12)',acl:'rgba(255,209,102,.5)',cityUp:false},
-  night:{bg:'#131416',park:'#161a1b',wood:'#15191a',water:'#262b31',bld:'#1b1d20',bld3:'#1e2124',minor:'#2d3036',major:'#3d4148',mot:'#4b5058',cas:'#131416',path:'#2a2d32',rail:'#2a2d33',lbl:'#80868f',halo:'#0d0e10',place:'#9aa0a8',city:'#dadde2',wlbl:'#525a64',navc:'#6f98ff',navcase:'#0d0e10',acf:'rgba(111,152,255,.12)',acl:'rgba(111,152,255,.5)',cityUp:true}
+  day:{zf:'rgba(220,38,38,.16)',zl:'#dc2626',ztxt:'#b91c1c',trap:'#f59e0b',traptxt:'#92400e',bg:'#f1efe9',park:'#dde5d4',wood:'#d4dfca',water:'#bdd0ce',bld:'#e4e1d9',bld3:'#e7e4dd',minor:'#ffffff',major:'#ffffff',mot:'#fffcf3',cas:'#d8d3c7',path:'#cbc6b8',rail:'#cdc8bc',lbl:'#6f6a5f',halo:'#f7f6f2',place:'#9a8366',city:'#3d3b37',wlbl:'#6c8d8b',navc:'#2d5bd8',navcase:'#ffffff',acf:'rgba(45,91,216,.10)',acl:'rgba(45,91,216,.35)',cityUp:false},
+  slate:{zf:'rgba(255,99,99,.22)',zl:'#ff7a7a',ztxt:'#ffc2c2',trap:'#fbbf24',traptxt:'#fde68a',bg:'#566a62',park:'#5c7167',wood:'#586d62',water:'#1e2526',bld:'#4e605a',bld3:'#50635b',minor:'#9fb4aa',major:'#c4d5cc',mot:'#d6e2db',cas:'#566a62',path:'#8aa096',rail:'#72867d',lbl:'#d9e5de',halo:'#3c4a45',place:'#e7efea',city:'#f3f7f4',wlbl:'#73857f',navc:'#ffd166',navcase:'#1e2526',acf:'rgba(255,209,102,.12)',acl:'rgba(255,209,102,.5)',cityUp:false},
+  night:{zf:'rgba(255,77,77,.17)',zl:'#ff5c5c',ztxt:'#ff9d9d',trap:'#f5b02e',traptxt:'#fcd34d',bg:'#131416',park:'#161a1b',wood:'#15191a',water:'#262b31',bld:'#1b1d20',bld3:'#1e2124',minor:'#2d3036',major:'#3d4148',mot:'#4b5058',cas:'#131416',path:'#2a2d32',rail:'#2a2d33',lbl:'#80868f',halo:'#0d0e10',place:'#9aa0a8',city:'#dadde2',wlbl:'#525a64',navc:'#6f98ff',navcase:'#0d0e10',acf:'rgba(111,152,255,.12)',acl:'rgba(111,152,255,.5)',cityUp:true}
 };
 const GJ={plan:EMPTY,nav:EMPTY,acc:EMPTY};
 const Z=(...s)=>['interpolate',['exponential',1.5],['zoom'],...s];
@@ -495,7 +549,7 @@ function buildStyle(t){
   const road=(id,f,min,color,w,extra={})=>({id,type:'line',source:'omt','source-layer':'transportation',minzoom:min,filter:f,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':color,'line-width':w,...extra}});
   return{version:8,
     glyphs:'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
-    sources:{omt:{type:'vector',url:'https://tiles.openfreemap.org/planet'},plan:{type:'geojson',data:GJ.plan},nav:{type:'geojson',data:GJ.nav},acc:{type:'geojson',data:GJ.acc}},
+    sources:{omt:{type:'vector',url:'https://tiles.openfreemap.org/planet'},plan:{type:'geojson',data:GJ.plan},nav:{type:'geojson',data:GJ.nav},acc:{type:'geojson',data:GJ.acc},zones:{type:'geojson',data:ZGJ}},
     layers:[
       {id:'bg',type:'background',paint:{'background-color':p.bg}},
       {id:'wood',type:'fill',source:'omt','source-layer':'landcover',filter:cls('wood','forest'),paint:{'fill-color':p.wood}},
@@ -513,6 +567,10 @@ function buildStyle(t){
       road('major',cls('primary','secondary','tertiary','trunk'),8,p.major,Z(8,.6,12,1.6,16,10,18,22)),
       road('mot',cls('motorway'),6,p.mot,Z(6,.8,12,2.5,16,12,18,26)),
       {id:'bld3',type:'fill-extrusion',source:'omt','source-layer':'building',minzoom:15,paint:{'fill-extrusion-color':p.bld3,'fill-extrusion-height':['coalesce',['get','render_height'],6],'fill-extrusion-base':['coalesce',['get','render_min_height'],0],'fill-extrusion-opacity':.88}},
+      {id:'zone-f',type:'fill',source:'zones',filter:['==',['get','k'],'red'],paint:{'fill-color':p.zf}},
+      {id:'zone-l',type:'line',source:'zones',filter:['==',['get','k'],'red'],paint:{'line-color':p.zl,'line-width':Z(11,1.2,16,3),'line-dasharray':[3,2]}},
+      {id:'trap-l',type:'line',source:'zones',filter:['==',['get','k'],'trap'],layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':p.trap,'line-width':Z(12,3,16,10,18,22),'line-opacity':.55}},
+      {id:'trap-hit',type:'line',source:'zones',filter:['==',['get','k'],'trap'],paint:{'line-color':'#000','line-width':26,'line-opacity':.01}},
       {id:'acc-f',type:'fill',source:'acc',paint:{'fill-color':p.acf}},
       {id:'acc-l',type:'line',source:'acc',paint:{'line-color':p.acl,'line-width':1}},
       {id:'plan-c',type:'line',source:'plan',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':p.navcase,'line-width':Z(10,3.5,16,10),'line-opacity':navOn?.5:.9}},
@@ -524,7 +582,9 @@ function buildStyle(t){
       {id:'water-lbl',type:'symbol',source:'omt','source-layer':'water_name',layout:{'text-field':NAME,'text-font':['Noto Sans Italic'],'text-size':12,'symbol-placement':'point'},paint:{'text-color':p.wlbl,'text-halo-color':p.halo,'text-halo-width':1}},
       {id:'hood-lbl',type:'symbol',source:'omt','source-layer':'place',minzoom:12,filter:cls('suburb','quarter','neighbourhood'),layout:{'text-field':NAME,'text-font':['Noto Sans Bold'],'text-size':Z(12,9.5,16,12.5),'text-transform':'uppercase','text-letter-spacing':.12,'text-max-width':8},paint:{'text-color':p.place,'text-halo-color':p.halo,'text-halo-width':1.5}},
       {id:'town-lbl',type:'symbol',source:'omt','source-layer':'place',minzoom:9,filter:cls('town','village','hamlet'),layout:{'text-field':NAME,'text-font':['Noto Sans Regular'],'text-size':Z(9,10,14,15),'text-transform':p.cityUp?'uppercase':'none','text-letter-spacing':p.cityUp?.08:0},paint:{'text-color':p.city,'text-halo-color':p.halo,'text-halo-width':1.6}},
-      {id:'city-lbl',type:'symbol',source:'omt','source-layer':'place',maxzoom:14.5,filter:['==',['get','class'],'city'],layout:{'text-field':['coalesce',['get','name:en'],NAME],'text-font':['Noto Sans Bold'],'text-size':Z(6,12,13,22),'text-transform':p.cityUp?'uppercase':'none','text-letter-spacing':p.cityUp?.1:.01},paint:{'text-color':p.city,'text-halo-color':p.halo,'text-halo-width':2}}
+      {id:'city-lbl',type:'symbol',source:'omt','source-layer':'place',maxzoom:14.5,filter:['==',['get','class'],'city'],layout:{'text-field':['coalesce',['get','name:en'],NAME],'text-font':['Noto Sans Bold'],'text-size':Z(6,12,13,22),'text-transform':p.cityUp?'uppercase':'none','text-letter-spacing':p.cityUp?.1:.01},paint:{'text-color':p.city,'text-halo-color':p.halo,'text-halo-width':2}},
+      {id:'trap-lbl',type:'symbol',source:'zones',minzoom:15,filter:['==',['get','k'],'trap'],layout:{'symbol-placement':'line','text-field':['get','label'],'text-font':['Noto Sans Bold'],'text-size':12},paint:{'text-color':p.traptxt,'text-halo-color':p.halo,'text-halo-width':1.6}},
+      {id:'zone-lbl',type:'symbol',source:'zones',minzoom:12,filter:['==',['get','k'],'redlbl'],layout:{'text-field':['get','label'],'text-font':['Noto Sans Bold'],'text-size':Z(12,11,16,14),'text-transform':'uppercase','text-letter-spacing':.06},paint:{'text-color':p.ztxt,'text-halo-color':p.halo,'text-halo-width':1.8}}
     ]};
 }
 
@@ -545,7 +605,7 @@ map.on('rotate',updateNorth);map.on('pitch',updateNorth);
 function setSrc(id,data){GJ[id]=data;const s=map.getSource(id);if(s)s.setData(data)}
 function userMoved(e){if(!e.originalEvent)return;if(followMode){followMode=0;updateLocBtn()}if(nav)$('#btnRecenter').hidden=false}
 map.on('dragstart',userMoved);map.on('zoomstart',e=>{if(nav)userMoved(e)});
-map.on('click',e=>{if(Date.now()-lpAt<800)return;if(e.originalEvent&&e.originalEvent.target.closest&&e.originalEvent.target.closest('.mk'))return;closeCard();hideResults()});
+map.on('click',e=>{if(Date.now()-lpAt<800)return;if(e.originalEvent&&e.originalEvent.target.closest&&e.originalEvent.target.closest('.mk'))return;if(!nav){let f=[];try{f=map.queryRenderedFeatures(e.point,{layers:['zone-f','trap-hit']})}catch(_){}if(f.length){hideResults();openZoneCard(ZI[f[0].properties.id]);return}}closeCard();hideResults()});
 document.body.classList.toggle('far',map.getZoom()<12.3);
 
 /* long-press to drop a pin */
@@ -562,6 +622,7 @@ P.forEach(p=>{
   el.innerHTML=`<div class="pin" style="--c:${G[p.g].c}"><span class="pin-in">${icon(p.t)}</span></div>${p.s?'<span class="mkstar">★</span>':''}`;
   el.addEventListener('click',e=>{e.stopPropagation();openCard(p,true)});
   MK[p.id]={el,m:new maplibregl.Marker({element:el,anchor:'bottom',offset:[0,-6]}).setLngLat([p.lng,p.lat]).addTo(map)};
+  el.setAttribute('aria-label',p.n);el.dataset.id=p.id;
 });
 function renderPlanMarkers(){
   const pl=activePlan&&PLI[activePlan];const order={};
@@ -649,6 +710,7 @@ function updateMe(m){
     if(near>60000&&!sim.on)toast(`You’re ${fmtDist(near)} from the trip. To try it now, open Plans and tap “Test drive”.`,5200);
     if(followMode)map.jumpTo({center:[m.lng,m.lat],zoom:Math.max(map.getZoom(),15.5)});
   }
+  zoneCheck();
   if(nav)navUpdate();
   if(followMode)camTick();
   if(!prev||hav(prev,m)>25||Date.now()-lastNear>8000)refreshNear();
@@ -682,19 +744,71 @@ $('#nbWake').onclick=()=>setWake(!wantWake);
 
 /* ---------- routing (OSRM, FOSSGIS servers) ---------- */
 const ROUTER={foot:'https://routing.openstreetmap.de/routed-foot/route/v1/driving/',bike:'https://routing.openstreetmap.de/routed-bike/route/v1/driving/'};
-async function osrm(pts,mode){
-  const url=ROUTER[mode]+pts.map(p=>p[0].toFixed(6)+','+p[1].toFixed(6)).join(';')+'?overview=full&geometries=geojson&steps=true';
-  const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),15000);
-  try{const r=await fetch(url,{signal:ctl.signal});if(!r.ok)throw new Error('HTTP '+r.status);const j=await r.json();
-    if(j.code!=='Ok'||!j.routes||!j.routes.length)throw new Error(j.code||'no route');
-    const rt=j.routes[0];return{coords:rt.geometry.coordinates,steps:rt.legs.flatMap(l=>l.steps),dist:rt.distance,dur:rt.duration,straight:false}}
-  finally{clearTimeout(to)}
+async function getJSON(url,ms=15000){const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),ms);
+  try{const r=await fetch(url,{signal:ctl.signal});const j=await r.json().catch(()=>null);
+    if(!r.ok||!j){const e=new Error((j&&j.error)||('HTTP '+r.status));e.code=j&&j.error_code;throw e}return j}
+  finally{clearTimeout(to)}}
+const ANG={straight:0,'slight right':40,right:90,'sharp right':135,uturn:180,'sharp left':-135,left:-90,'slight left':-40};
+function instr(s){
+  const m=s.maneuver,t=m.type,mod=m.modifier||'',on=s.name?` onto ${s.name}`:'';
+  if(t==='arrive')return'Arrive';
+  if(t==='depart')return`Head ${compassWord(m.bearing_after||0)}${s.name?` on ${s.name}`:''}`;
+  if(t==='roundabout'||t==='rotary'||t==='roundabout turn')return`At the roundabout, take exit ${m.exit||1}${on}`;
+  if(t==='fork')return`Keep ${mod.includes('left')?'left':'right'}${on}`;
+  if(t==='end of road')return`At the end of the road, turn ${mod.includes('left')?'left':'right'}${on}`;
+  if(t==='new name'||t==='continue'||mod==='straight')return s.name?`Continue onto ${s.name}`:'Continue straight';
+  const w={left:'Turn left',right:'Turn right','slight left':'Bear left','slight right':'Bear right','sharp left':'Turn sharp left','sharp right':'Turn sharp right',uturn:'Make a U-turn'};
+  return(w[mod]||'Continue')+on;
 }
-function straightRoute(a,b){const d=havLL(a,b);return{coords:[a,b],steps:[{maneuver:{type:'depart',location:a,bearing_after:bearing(a,b)},name:''},{maneuver:{type:'arrive',location:b},name:''}],dist:d,dur:d/1.3,straight:true}}
+function normOSRM(s){const m=s.maneuver,t=m.type,mod=m.modifier||'';let kind='turn';
+  if(t==='arrive')kind='arrive';else if(t==='depart')kind='depart';else if(t==='roundabout'||t==='rotary'||t==='roundabout turn')kind='roundabout';else if(mod==='uturn')kind='uturn';
+  return{loc:m.location,kind,angle:kind==='turn'?(ANG[mod]||0):0,text:instr(s)}}
+async function osrm(pts,mode){
+  const j=await getJSON(ROUTER[mode]+pts.map(p=>p[0].toFixed(6)+','+p[1].toFixed(6)).join(';')+'?overview=full&geometries=geojson&steps=true');
+  if(j.code!=='Ok'||!j.routes||!j.routes.length)throw new Error(j.code||'no route');
+  const rt=j.routes[0];return{coords:rt.geometry.coordinates,steps:rt.legs.flatMap(l=>l.steps).map(normOSRM),dist:rt.distance,dur:rt.duration,src:'osrm'}}
+function decodePoly(str,prec=6){let i=0,lat=0,lng=0;const out=[],f=Math.pow(10,prec);
+  while(i<str.length){let b,sh=0,r=0;do{b=str.charCodeAt(i++)-63;r|=(b&31)<<sh;sh+=5}while(b>=32);lat+=(r&1)?~(r>>1):(r>>1);
+    sh=0;r=0;do{b=str.charCodeAt(i++)-63;r|=(b&31)<<sh;sh+=5}while(b>=32);lng+=(r&1)?~(r>>1):(r>>1);out.push([lng/f,lat/f])}return out}
+const VANG={7:0,8:0,17:0,22:0,25:0,9:40,10:90,11:135,14:-135,15:-90,16:-40,18:45,19:-45,20:45,21:-45,23:25,24:-25,37:20,38:-20};
+async function valhalla(pts,mode,polys){
+  const body={locations:pts.map(p=>({lon:+p[0].toFixed(6),lat:+p[1].toFixed(6),type:'break'})),costing:mode==='bike'?'bicycle':'pedestrian',
+    costing_options:mode==='bike'?{bicycle:{bicycle_type:'Hybrid'}}:{pedestrian:{}},exclude_polygons:polys,directions_options:{units:'kilometers',language:'en-US'}};
+  const j=await getJSON('https://valhalla1.openstreetmap.de/route?json='+encodeURIComponent(JSON.stringify(body)),18000);
+  if(!j.trip||!j.trip.legs)throw new Error('no route');
+  const coords=[],steps=[];
+  j.trip.legs.forEach(l=>{const off=coords.length,sh=decodePoly(l.shape);coords.push(...sh);
+    (l.maneuvers||[]).forEach(m=>{const t=m.type;let kind='turn';
+      if(t>=1&&t<=3)kind='depart';else if(t>=4&&t<=6)kind='arrive';else if(t===26||t===27)kind='roundabout';else if(t===12||t===13)kind='uturn';
+      steps.push({i:off+m.begin_shape_index,loc:sh[m.begin_shape_index],kind,angle:kind==='turn'?(VANG[t]||0):0,text:(m.instruction||'Continue').replace(/\.$/,'')})})});
+  return{coords,steps,dist:j.trip.summary.length*1000,dur:j.trip.summary.time,src:'valhalla'}}
+/* safe routing: always exclude nearby red zones, then double-check the result */
+const PER_MAX=9500,ringOut=z=>[...z.ring,z.ring[0]];
+function zonesNear(pts){const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]),bb=[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)],kx=Math.cos(bb[1]*R2)*111320;
+  return RED.map(z=>{const dx=Math.max(0,z.bb[0]-bb[2],bb[0]-z.bb[2])*kx,dy=Math.max(0,z.bb[1]-bb[3],bb[1]-z.bb[3])*110540;return{z,d:Math.hypot(dx,dy)}})
+    .filter(x=>x.d<3000).sort((a,b)=>a.d-b.d).map(x=>x.z)}
+function pickZones(cands,must){const S=[...must];let per=S.reduce((s,z)=>s+z.per,0);for(const z of cands){if(S.includes(z))continue;if(per+z.per<=PER_MAX){S.push(z);per+=z.per}}return S}
+async function safeRoute(pts,mode){
+  const cands=zonesNear(pts);let must=[],S=pickZones(cands,must),r=null,shrunk=false;
+  for(let n=0;n<3;n++){
+    try{r=await valhalla(pts,mode,S.map(ringOut))}
+    catch(e){if(e.name!=='AbortError'&&S.length>1&&!shrunk){shrunk=true;S=must.length?[...must]:[S[0]];continue}r=null;break}
+    const hit=crossed(r.coords),miss=hit.filter(z=>!S.includes(z));
+    if(!hit.length)return r;
+    if(!miss.length)break;
+    must=[...new Set([...must,...miss])];S=pickZones(cands,must);
+  }
+  if(!r)r=await osrm(pts,mode);
+  const hit=crossed(r.coords);if(hit.length)r.unsafe=hit;return r;
+}
+function straightRoute(a,b){const d=havLL(a,b);return{coords:[a,b],steps:[{loc:a,kind:'depart',angle:0,text:`Head ${compassWord(bearing(a,b))}`},{loc:b,kind:'arrive',angle:0,text:'Arrive'}],dist:d,dur:d/1.3,src:'straight'}}
 function prep(r){
   const c=r.coords,cum=[0];for(let i=1;i<c.length;i++)cum.push(cum[i-1]+havLL(c[i-1],c[i]));
   const mi=[];let from=0;
-  r.steps.forEach(s=>{const L=s.maneuver.location;let best=1e18,bi=from;for(let i=from;i<c.length;i++){const d=(c[i][0]-L[0])**2+(c[i][1]-L[1])**2;if(d<best){best=d;bi=i}}mi.push(bi);from=bi});
+  r.steps.forEach(s=>{let bi=from;
+    if(Number.isInteger(s.i))bi=Math.max(from,Math.min(c.length-1,s.i));
+    else{const L=s.loc;let best=1e18;for(let i=from;i<c.length;i++){const d=(c[i][0]-L[0])**2+(c[i][1]-L[1])**2;if(d<best){best=d;bi=i}}}
+    mi.push(bi);from=bi});
   return{...r,cum,mi,total:cum[cum.length-1]||0};
 }
 function snap(R,pt){
@@ -709,32 +823,23 @@ function pointAt(R,along){const c=R.coords;if(c.length<2)return{lng:c[0][0],lat:
   const seg=R.cum[i]-R.cum[i-1]||1,t=Math.max(0,Math.min(1,(along-R.cum[i-1])/seg));
   return{lng:c[i-1][0]+(c[i][0]-c[i-1][0])*t,lat:c[i-1][1]+(c[i][1]-c[i-1][1])*t,b:bearing(c[i-1],c[i])}}
 
-/* turn instructions */
-const ANG={straight:0,'slight right':40,right:90,'sharp right':135,uturn:180,'sharp left':-135,left:-90,'slight left':-40};
-function instr(s,tgt){
-  const m=s.maneuver,t=m.type,mod=m.modifier||'',on=s.name?` onto ${s.name}`:'';
-  if(t==='arrive')return`Arrive at ${tgt}`;
-  if(t==='depart')return`Head ${compassWord(m.bearing_after||0)}${s.name?` on ${s.name}`:''}`;
-  if(t==='roundabout'||t==='rotary'||t==='roundabout turn')return`At the roundabout, take exit ${m.exit||1}${on}`;
-  if(t==='fork')return`Keep ${mod.includes('left')?'left':'right'}${on}`;
-  if(t==='end of road')return`At the end of the road, turn ${mod.includes('left')?'left':'right'}${on}`;
-  if(t==='new name'||t==='continue'||mod==='straight')return s.name?`Continue onto ${s.name}`:'Continue straight';
-  const w={left:'Turn left',right:'Turn right','slight left':'Bear left','slight right':'Bear right','sharp left':'Turn sharp left','sharp right':'Turn sharp right',uturn:'Make a U-turn'};
-  return(w[mod]||'Continue')+on;
-}
-function turnSVG(s){const t=s.maneuver.type;
-  if(t==='arrive')return'<path d="M5 2h2v20H5zM8 3h11l-3 4.5 3 4.5H8z"/>';
-  if(t==='roundabout'||t==='rotary')return'<path d="M12 5a7 7 0 1 1-6.9 8.2h2.1A5 5 0 1 0 12 7zM11 7V1l4 3z"/><path d="M11 13h2v9h-2z"/>';
-  if(t==='depart')return'<path d="M12 2 4.5 21 12 17l7.5 4z"/>';
-  if(s.maneuver.modifier==='uturn')return'<path d="M8 22V9a5 5 0 0 1 10 0v4h3l-4 5-4-5h3V9a3 3 0 0 0-6 0v13z"/>';
+/* turn icons */
+const WARN_SVG='<path d="M12 2 1 21h22zm-1 7h2v6h-2zm0 8h2v2h-2z"/>';
+function turnSVG(s){const k=s.kind;
+  if(k==='arrive')return'<path d="M5 2h2v20H5zM8 3h11l-3 4.5 3 4.5H8z"/>';
+  if(k==='roundabout')return'<path d="M12 5a7 7 0 1 1-6.9 8.2h2.1A5 5 0 1 0 12 7zM11 7V1l4 3z"/><path d="M11 13h2v9h-2z"/>';
+  if(k==='depart')return'<path d="M12 2 4.5 21 12 17l7.5 4z"/>';
+  if(k==='uturn')return'<path d="M8 22V9a5 5 0 0 1 10 0v4h3l-4 5-4-5h3V9a3 3 0 0 0-6 0v13z"/>';
   return'<path d="M12 2 5 10h4.6v12h4.8V10H19z"/>';}
-function turnAngle(s){const t=s.maneuver.type;if(t==='arrive'||t==='roundabout'||t==='rotary'||t==='depart'||s.maneuver.modifier==='uturn')return 0;return ANG[s.maneuver.modifier]||0}
+const uberURL=p=>`https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[latitude]=${p.lat}&dropoff[longitude]=${p.lng}&dropoff[nickname]=${encodeURIComponent(p.n)}`;
 
 /* ---------- navigation ---------- */
 async function startNav(stops,idx,mode,planId){
   if(!me){requestCompass();followMode=2;startGPS(true);toast('Turn on your location to start');return}
   const tgt=stops[idx],far=hav(me,tgt);
   if(far>60000){toast(`That’s ${fmtDist(far)} away. Use “Test drive” in Plans, or open it in Google Maps.`,5200);return}
+  const zMe=zoneAt(me),zT=zoneAt(tgt);
+  if(zMe||zT){openZoneCard(zMe||zT,{why:zMe?'start':'dest',tgt});return}
   closeCard();hideResults();
   nav={stops,idx,mode,planId,route:null,lastRe:0,spoken:{},busy:false};
   document.body.classList.add('navving');
@@ -748,11 +853,14 @@ async function startNav(stops,idx,mode,planId){
   camTick(true);
 }
 async function navRoute(){
-  if(!nav||nav.busy)return;nav.busy=true;nav.lastRe=Date.now();
+  if(!nav||nav.busy)return;
   const tgt=nav.stops[nav.idx],a=[me.lng,me.lat],b=[tgt.lng,tgt.lat];
-  $('#ntText').textContent='Finding the way…';
-  let r;try{r=await osrm([a,b],nav.mode)}catch(e){r=straightRoute(a,b);toast('No route service right now, showing a straight line')}
+  if(zoneAt(me)||zoneAt(tgt)){nav.lastRe=Date.now();navUpdate();return}
+  nav.busy=true;nav.lastRe=Date.now();
+  $('#ntText').textContent='Finding a safe way…';
+  let r;try{r=await safeRoute([a,b],nav.mode)}catch(e){r=straightRoute(a,b);const h=crossed(r.coords);if(h.length)r.unsafe=h;toast('No route service right now, showing a straight line')}
   if(!nav){return}
+  if(r.unsafe){const n=r.unsafe.map(z=>z.short).join(' and ');toast(`Careful: the only route found passes ${n}. A taxi is the safer choice here.`,6500);speak(`Careful. This route passes ${n}.`)}
   nav.route=prep(r);nav.spoken={};nav.busy=false;sim.route=null;
   setSrc('nav',{type:'Feature',geometry:{type:'LineString',coordinates:r.coords}});
   $('#nbG').href=gmapsURL([tgt],nav.mode);
@@ -762,17 +870,20 @@ function navUpdate(){
   if(!nav||!nav.route||!me)return;
   const R=nav.route,tgt=nav.stops[nav.idx];
   if(hav(me,tgt)<28)return arrive();
+  const zin=zoneAt(me),ti0=$('#turnIcon');
+  if(zin){ti0.innerHTML=WARN_SVG;ti0.style.transform='';$('#ntDist').textContent='Red zone';$('#ntText').textContent=`You’re inside ${zin.short}. Head back the way you came, or take a taxi.`;return}
+  if(zoneAt(tgt)){endNav();openZoneCard(zoneAt(tgt),{why:'dest',tgt});return}
   const s=snap(R,me);
   if(s.dist>45&&Date.now()-nav.lastRe>12000&&!nav.busy){navRoute();return}
   let k=R.steps.findIndex((st,j)=>j>0&&R.cum[R.mi[j]]>s.along+4);if(k<0)k=R.steps.length-1;
   const st=R.steps[k],toMan=Math.max(0,R.cum[R.mi[k]]-s.along),remain=Math.max(0,R.total-s.along);
-  const txt=instr(st,tgt.n),ti=$('#turnIcon');
-  ti.innerHTML=turnSVG(st);ti.style.transform=`rotate(${turnAngle(st)}deg)`;
+  const txt=st.kind==='arrive'?`Arrive at ${tgt.n}`:st.text,ti=$('#turnIcon');
+  ti.innerHTML=turnSVG(st);ti.style.transform=`rotate(${st.angle||0}deg)`;
   $('#ntDist').textContent=fmtDist(toMan);$('#ntText').textContent=txt;
   const mins=minsFor(remain,nav.mode);
   $('#nbMin').textContent=fmtMin(mins);$('#nbDist').textContent=fmtDist(remain);$('#nbClock').textContent='arrive '+clock(new Date(Date.now()+mins*60000));
   const pl=nav.planId?PLI[nav.planId]:null;
-  $('#nbTo').innerHTML=`to <b>${esc(tgt.n)}</b>${pl?` · stop ${nav.idx+1} of ${pl.stops.length}`:''}${R.straight?' · straight line':''}`;
+  $('#nbTo').innerHTML=`to <b>${esc(tgt.n)}</b>${pl?` · stop ${nav.idx+1} of ${pl.stops.length}`:''}${R.src==='straight'?' · straight line':''}${R.unsafe?` · <span style="color:#dc2626">passes ${esc(R.unsafe.map(z=>z.short).join(', '))}</span>`:''}`;
   if(!nav.spoken[k+'f']&&toMan<160&&toMan>60){nav.spoken[k+'f']=1;speak(`In ${Math.round(toMan/10)*10} metres, ${txt.charAt(0).toLowerCase()+txt.slice(1)}`)}
   if(!nav.spoken[k+'n']&&toMan<=35){nav.spoken[k+'n']=1;speak(txt)}
 }
@@ -814,7 +925,7 @@ $('#simBadge').onclick=simStop;
 /* ---------- Google Maps hand-off ---------- */
 function gmapsURL(stops,mode){
   const enc=p=>p.temp?`${p.lat},${p.lng}`:encodeURIComponent(p.q);
-  const dest=stops[stops.length-1];let u=`https://www.google.com/maps/dir/?api=1&destination=${enc(dest)}&travelmode=${mode==='bike'?'bicycling':'walking'}`;
+  const dest=stops[stops.length-1];let u=`https://www.google.com/maps/dir/?api=1&destination=${enc(dest)}&travelmode=${mode==='bike'?'bicycling':mode==='transit'?'transit':'walking'}`;
   const wp=stops.slice(0,-1).slice(0,3);if(wp.length)u+='&waypoints='+wp.map(enc).join('%7C');return u;
 }
 
@@ -835,12 +946,12 @@ function openCard(p,fromMap){
     ${p.w?`<p class="c-warn">${esc(p.w)}</p>`:''}
     ${pi.map(t=>`<div class="c-plan">${esc(t)}</div>`).join('')}
     ${p.a?`<div class="c-approx">Pin is approximate. Google Maps will find the exact door.</div>`:''}
-    <div class="c-actions">
+    ${zoneAt(p)?`<div class="c-red">This spot is inside ${esc(zoneAt(p).short)}, one of your red zones, so the app won’t route you here.</div><div class="c-actions"><a class="hb red fill" href="${uberURL(p)}" target="_blank" rel="noopener">Uber</a><a class="hb" href="${gmapsURL([p],'transit')}" target="_blank" rel="noopener">Public transport</a></div>`:`<div class="c-actions">
       <button class="hb fill" data-go="foot">${UI.walk}Walk here</button>
       <button class="hb" data-go="bike">Bike here</button>
       <a class="hb" href="${gmapsURL([p],'foot')}" target="_blank" rel="noopener">${UI.ext}Google Maps</a>
       ${p.u?`<a class="hb" href="${esc(p.u)}" target="_blank" rel="noopener">Info</a>`:''}
-    </div>`;
+    </div>`}`;
   $('#card').classList.add('on');$('#card').scrollTop=0;
   $('#card .x').onclick=closeCard;
   $('#card').querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>startNav([p],0,b.dataset.go,null));
@@ -848,6 +959,31 @@ function openCard(p,fromMap){
   const h=$('#card').offsetHeight;
   map.easeTo({center:[p.lng,p.lat],offset:[0,-Math.min(h/2,innerHeight*.3)],zoom:Math.max(map.getZoom(),fromMap?map.getZoom():15.5),duration:500});
 }
+function openZoneCard(z,ctx){
+  if(!z)return;cardPlace=null;select(null);const red=z.kind==='red',dest=ctx&&ctx.tgt&&!zoneAt(ctx.tgt)?ctx.tgt:PI.hotel;
+  const why=ctx?(ctx.why==='start'?`You’re inside this area, so the app won’t start a walking route from here. Leave by taxi or public transport first.`:`${esc(ctx.tgt.n)} is inside this area, so the app won’t route you there.`):'';
+  $('#card').innerHTML=`<button class="x" aria-label="Close">×</button>
+    <div class="c-grp" style="--c:${red?'#dc2626':'#f59e0b'}"><i></i>${red?'Red zone, routes always avoid it':'Tourist trap, shown but not avoided'}</div>
+    <h3 class="c-title">${esc(z.n)}</h3>
+    ${why?`<div class="c-red">${why}</div>`:''}
+    <p class="c-note">${esc(z.note)}</p>
+    <p class="c-quote">“${esc(z.q)}” <a href="${esc(z.src)}" target="_blank" rel="noopener">source</a></p>
+    ${red&&ctx?`<div class="c-actions"><a class="hb red fill" href="${uberURL(dest)}" target="_blank" rel="noopener">Uber to ${esc(dest.n)}</a><a class="hb" href="${gmapsURL([dest],'transit')}" target="_blank" rel="noopener">Public transport</a></div>`:''}`;
+  $('#card').classList.add('on');$('#card').scrollTop=0;$('#card .x').onclick=closeCard;
+}
+let zoneIn=null;const zWarned={};
+function zoneCheck(){
+  if(!me)return;const z=zoneAt(me),b=$('#zoneBanner');
+  if(z!==zoneIn){zoneIn=z;
+    if(z){const dest=nav&&!zoneAt(nav.stops[nav.idx])?nav.stops[nav.idx]:PI.hotel;
+      $('#zbT').textContent=`You’re inside ${z.short}. `;$('#zbS').textContent='This is one of your red zones. Head back the way you came, or get a ride out.';
+      $('#zbUber').href=uberURL(dest);$('#zbUber').textContent=`Uber to ${dest.n}`;$('#zbTransit').href=gmapsURL([dest],'transit');
+      b.hidden=false;speak(`Careful. You are inside ${z.short}, one of your red zones.`)}
+    else b.hidden=true}
+  if(!z)for(const r of RED){const d=distToRing(me,r.ring);
+    if(d<150&&(!zWarned[r.id]||Date.now()-zWarned[r.id]>600000)){zWarned[r.id]=Date.now();toast(`Heads up: the ${r.short} red zone is ${fmtDist(d)} away`,4200);if(nav)speak(`Heads up. ${r.short} red zone nearby.`)}}
+}
+$('#zbInfo').onclick=()=>openZoneCard(zoneIn);
 function closeCard(){$('#card').classList.remove('on');select(null);cardPlace=null;if(tempMarker){tempMarker.remove();tempMarker=null}}
 function dropPin(ll,name,sub){
   if(nav)return;clearTimeout(lp);
@@ -919,9 +1055,9 @@ async function showPlan(id,fit=true){
   activePlan=id;lastTab=null;LS.set('plan',id);renderPlanMarkers();
   const pl=PLI[id],pts=pl.stops.map(([s])=>[PI[s].lng,PI[s].lat]);
   if(fit){const b=new maplibregl.LngLatBounds();pts.forEach(p=>b.extend(p));map.fitBounds(b,{padding:{top:130,bottom:Math.min(sheetH,innerHeight*.5)+30,left:40,right:70},maxZoom:16,duration:700})}
-  let r=planRoutes[id]||LS.get('rt3:'+id,null);
+  let r=planRoutes[id]||LS.get('rt4:'+id,null);
   if(!r){setSrc('plan',{type:'Feature',properties:{c:G[pl.g].c,straight:1},geometry:{type:'LineString',coordinates:pts}});
-    try{const o=await osrm(pts,pl.mode);r={coords:o.coords,dist:o.dist};LS.set('rt3:'+id,r)}catch(e){r={coords:pts,dist:pts.slice(1).reduce((s,p,i)=>s+havLL(pts[i],p),0),straight:1}}}
+    try{const o=await safeRoute(pts,pl.mode);r={coords:o.coords,dist:o.dist,unsafe:o.unsafe?o.unsafe.map(z=>z.short):null};if(!o.unsafe)LS.set('rt4:'+id,r)}catch(e){r={coords:pts,dist:pts.slice(1).reduce((s,p,i)=>s+havLL(pts[i],p),0),straight:1}}}
   planRoutes[id]=r;
   if(activePlan===id)setSrc('plan',{type:'Feature',properties:{c:G[pl.g].c,straight:r.straight?1:0},geometry:{type:'LineString',coordinates:r.coords}});
   if(tab==='plans')renderSheet();
@@ -949,9 +1085,15 @@ const NOTES=`<div class="notes">
 <tr><td>Antwerpen</td><td>everything open except Invincible</td><td>Shuk, Kamino, Dansing Chocola closed, cathedral from 13:00, but Boekenberg open</td></tr>
 <tr><td>Bruges</td><td>everything open except Tante Marie</td><td>Adornes closed</td></tr></table>
 <p>Antwerpen copes best with a Sunday, so if you’re unsure: Gent or Bruges on Saturday, Antwerpen on Sunday.</p>
+<h4>Red zones (always avoided)</h4>
+<p>Walking and bike routes never go through the red areas on the map, and the app won’t start a route inside one or route you into one. If you end up inside one, a red banner appears with an Uber button. Tap a red area on the map for details.</p>
+${ZONES.filter(z=>z.kind==='red').map(z=>`<div class="zrow"><b>${esc(z.n)}</b><br>${esc(z.note)}<br><i>“${esc(z.q)}”</i> <a href="${esc(z.src)}" target="_blank" rel="noopener">source</a></div>`).join('')}
+<p class="warn">Day trips and the airport: trains also stop at Nord and Midi. Get on and off at Brussels-Central, which is closest to the hotel anyway.</p>
+<h4>Tourist traps (shown in amber, not avoided)</h4>
+${ZONES.filter(z=>z.kind==='trap').map(z=>`<div class="zrow trap"><b>${esc(z.n)}</b><br>${esc(z.note)}<br><i>“${esc(z.q)}”</i> <a href="${esc(z.src)}" target="_blank" rel="noopener">source</a></div>`).join('')}
 <h4>Good to know</h4><p>Most museums close on Mondays, so all the indoor art is on Friday.</p><p class="warn">At night stick to the Grand-Place, Mont des Arts and Sablon, or take a taxi. The route skips Gare du Nord, Anderlecht and Cureghem, and avoids Midi and Porte de Hal after dark.</p>
 <h4>Using this map</h4><p>Tap a pin for your notes. Long-press anywhere on the map to drop a pin and route there. ◎ follows you, tap it again to turn the map with you. During navigation, Voice reads the turns and Screen on stops the phone locking (handy on the bike mount).</p>
-<p class="fine">Map data © OpenStreetMap contributors · tiles by OpenFreeMap / OpenMapTiles · routes by FOSSGIS OSRM · address search by Photon (komoot). Opening hours are from your notes; “open now” uses today’s day and time.</p></div>`;
+<p class="fine">Map data © OpenStreetMap contributors · tiles by OpenFreeMap / OpenMapTiles · safe routes by Valhalla and OSRM on FOSSGIS servers · address search by Photon (komoot). Opening hours are from your notes; “open now” uses today’s day and time.</p></div>`;
 let lastTab=null;
 function renderSheet(){
   const b=$('#sbody'),st=lastTab===tab?b.scrollTop:0;lastTab=tab;
