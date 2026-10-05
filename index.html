@@ -1,0 +1,989 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fdfcf7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Belgium">
+<title>Belgium map · 9–12 Oct</title>
+<link rel="preconnect" href="https://tiles.openfreemap.org">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Patrick+Hand&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+:root{
+  --sheet-h:160px;
+  --safe-t:env(safe-area-inset-top,0px);
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --paper:#fdfcf7;--paper-ink:#1e3a8a;--paper-text:#18181b;--paper-muted:#52525b;
+  --rule:#dde6ef;--margin:#e7aeaa;--star:#c2410c;
+  --hand:'Caveat','Segoe Print','Bradley Hand',cursive;
+  --print:'Patrick Hand','Comic Neue','Segoe Print','Chalkboard SE',cursive;
+}
+body[data-theme=day]{--ui:#fdfcf7;--ui2:#f0ede3;--ink:#1e3a8a;--text:#1d1d21;--muted:#6b6a70;--line:rgba(30,58,138,.16);--sh:0 4px 16px rgba(50,45,30,.18);--hud:#1e3a8a;--hud-t:#fdfcf7;--accent:#2d5bd8;--ok:#15803d;--no:#c2410c}
+body[data-theme=slate]{--ui:#33413c;--ui2:#3f4f49;--ink:#e6efe9;--text:#f0f5f2;--muted:#a9bbb2;--line:rgba(228,238,232,.18);--sh:0 4px 16px rgba(0,0,0,.35);--hud:#1e2526;--hud-t:#ffd166;--accent:#ffd166;--ok:#8fe0a8;--no:#ffb08a;--paper:#efebdc}
+body[data-theme=night]{--ui:#191b1e;--ui2:#25282c;--ink:#e6e8eb;--text:#f2f3f5;--muted:#8f959d;--line:rgba(255,255,255,.13);--sh:0 4px 16px rgba(0,0,0,.55);--hud:#25282d;--hud-t:#f2f3f5;--accent:#6f98ff;--ok:#7ddc9a;--no:#ff9f7a;--paper:#e9e4d3}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--ui);font-family:var(--print);color:var(--text);-webkit-tap-highlight-color:transparent;overscroll-behavior:none;-webkit-text-size-adjust:100%}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#map{position:fixed;inset:0}
+.maplibregl-ctrl-bottom-left{bottom:calc(var(--sheet-h) + 2px)!important}
+.maplibregl-ctrl-attrib{font-family:system-ui,sans-serif;font-size:10px}
+.ico{width:22px;height:22px;fill:currentColor;flex:none}
+
+/* top */
+#top{position:fixed;top:calc(var(--safe-t) + 10px);left:10px;right:10px;z-index:20;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:560px}
+#top>*{pointer-events:auto}
+.search{display:flex;align-items:center;gap:8px;background:var(--ui);color:var(--muted);border-radius:14px;box-shadow:var(--sh);padding:0 4px 0 12px;height:46px}
+.search input{flex:1;border:0;background:transparent;font:inherit;font-size:18px;color:var(--text);outline:none;min-width:0}
+.search input::placeholder{color:var(--muted)}
+.search input::-webkit-search-cancel-button{display:none}
+.search button{border:0;background:none;width:38px;height:38px;border-radius:10px;color:var(--muted);font-size:24px;line-height:1}
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:0 0 6px;margin-bottom:-6px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border-radius:17px;background:var(--ui);color:var(--text);box-shadow:var(--sh);border:0;font-size:17px}
+.chip i{width:9px;height:9px;border-radius:50%;background:var(--c)}
+.results{background:var(--ui);border-radius:14px;box-shadow:var(--sh);max-height:52vh;overflow-y:auto;padding:4px 14px}
+.results h5{font-family:var(--hand);font-size:22px;margin:8px 0 0;color:var(--ink);font-weight:700}
+.results .empty{padding:10px 0;color:var(--muted)}
+
+/* side buttons */
+#rail{position:fixed;right:10px;top:calc(var(--safe-t) + 110px);z-index:18;display:flex;flex-direction:column;gap:10px}
+.fab{width:46px;height:46px;border-radius:50%;border:0;background:var(--ui);color:var(--ink);box-shadow:var(--sh);display:grid;place-items:center}
+#btnNorth svg{transition:transform .2s}
+#btnLocate{position:fixed;right:12px;bottom:calc(var(--sheet-h) + 14px);z-index:18;width:56px;height:56px;transition:bottom .28s cubic-bezier(.2,.8,.2,1)}
+#btnLocate.on{color:var(--accent)}
+#btnLocate.head{background:var(--accent);color:var(--ui)}
+body[data-theme=day] #btnLocate.head{color:#fff}
+
+/* sheet */
+#sheet{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:560px;z-index:15;background:var(--ui);color:var(--text);border-radius:22px 22px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.18);display:flex;flex-direction:column;will-change:transform}
+#sheet.gone{transform:translateY(110%)!important}
+.grab{padding:8px 18px 0;touch-action:none;user-select:none;-webkit-user-select:none}
+.handle{width:44px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 6px}
+.tabs{display:flex;gap:20px;border-bottom:1px solid var(--line)}
+.tab{font-family:var(--hand);font-size:27px;font-weight:700;border:0;background:none;color:var(--muted);padding:0 0 4px;margin-bottom:-1px;border-bottom:2px solid transparent;line-height:1.1}
+.tab[aria-selected=true]{color:var(--ink);border-color:var(--ink)}
+.sbody{flex:1;overflow-y:auto;padding:6px 18px calc(var(--safe-b) + 24px);-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.filters{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:8px 0 4px}
+.filters::-webkit-scrollbar{display:none}
+.flt{flex:none;border:1.4px solid var(--line);background:none;border-radius:15px;padding:3px 12px;font-size:16px;color:var(--muted)}
+.flt[aria-pressed=true]{border-color:var(--ink);color:var(--ink)}
+.ref{font-size:15px;color:var(--muted);margin:4px 0 0}
+.row{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px dashed var(--line);cursor:pointer;width:100%;background:none;border-left:0;border-right:0;border-top:0;text-align:left}
+.row .dot{width:30px;height:30px;border-radius:50%;background:var(--c);color:#fff;display:grid;place-items:center;flex:none;font-size:15px}
+.row .dot svg{width:16px;height:16px;fill:#fff}
+.row .mid{min-width:0;flex:1}
+.row .nm{font-size:19px;line-height:1.15;color:var(--text)}
+.row .sub{font-size:15px;color:var(--muted);line-height:1.2}
+.row .d{text-align:right;font-size:16px;white-space:nowrap;color:var(--text)}
+.row .d small{display:block;font-size:14px;color:var(--muted)}
+.st-open{color:var(--ok)}.st-closed{color:var(--no)}
+.time{font-family:var(--hand);font-weight:700;font-size:23px;width:52px;flex:none;color:var(--ink)}
+
+/* plans */
+.plan{padding:14px 0;border-bottom:1px dashed var(--line)}
+.plan h3{font-family:var(--hand);font-size:30px;font-weight:700;line-height:1;margin:0;color:var(--ink);display:flex;align-items:center;gap:9px}
+.plan h3 i{width:12px;height:12px;border-radius:50%;background:var(--c);flex:none}
+.plan p{margin:4px 0 10px;font-size:16px;color:var(--muted);line-height:1.3}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.btn{border:1.5px solid var(--ink);background:none;color:var(--ink);border-radius:255px 15px 225px 15px/15px 225px 15px 255px;padding:6px 14px;font-size:17px;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn.fill{background:var(--ink);color:var(--ui)}
+.back{border:0;background:none;color:var(--muted);font-size:17px;padding:8px 0 0}
+
+/* notes tab */
+.notes h4{font-family:var(--hand);font-size:26px;font-weight:700;color:var(--ink);margin:16px 0 2px;line-height:1.1}
+.notes p{margin:0 0 6px;font-size:17px;line-height:1.4}
+.notes .warn{color:var(--no)}
+.notes .warn::before{content:"↳ "}
+.notes a{color:var(--ink)}
+.notes table{width:100%;border-collapse:collapse;font-size:15px;margin:4px 0 6px}
+.notes th,.notes td{border-top:1px solid var(--line);padding:5px 4px;text-align:left;vertical-align:top}
+.notes th{font-family:var(--hand);font-size:20px;color:var(--ink)}
+.notes .fine{font-size:14px;color:var(--muted);margin-top:18px}
+
+/* pins */
+.mk{cursor:pointer}
+.pin{position:relative;width:30px;height:30px;border-radius:50% 50% 50% 5px;transform:rotate(-45deg);background:var(--c);border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);display:grid;place-items:center;transition:transform .15s}
+.pin-in{transform:rotate(45deg);color:#fff;display:grid;place-items:center;font-family:var(--print);font-size:15px;line-height:1}
+.pin-in svg{width:15px;height:15px;fill:#fff}
+.mkstar{position:absolute;top:-9px;right:-7px;font-size:14px;line-height:1;color:var(--star);text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff;pointer-events:none}
+.mk.sel .pin{transform:rotate(-45deg) scale(1.3)}
+.mk.sel{z-index:5}
+.mk.dim{opacity:.38}
+.mk.inplan{z-index:3}
+body.far .pin{transform:rotate(-45deg) scale(.62)}
+body.far .pin-in{opacity:0}
+body.far .mkstar{display:none}
+.pin.temp{background:var(--paper);border:2.5px solid var(--paper-ink)}
+.pin.temp .pin-in{color:var(--paper-ink)}
+
+/* me */
+.me{width:52px;height:52px;position:relative;pointer-events:none}
+.me svg{position:relative;width:52px;height:52px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))}
+.me::before{content:"";position:absolute;inset:-7px;border-radius:50%;background:rgba(45,91,216,.28);animation:pulse 2.4s ease-out infinite}
+@keyframes pulse{0%{transform:scale(.7);opacity:.9}100%{transform:scale(1.5);opacity:0}}
+.cone{width:150px;height:150px;border-radius:50%;pointer-events:none;background:conic-gradient(from -32deg,rgba(45,91,216,.55) 0deg 64deg,transparent 64deg);-webkit-mask:radial-gradient(circle,#000 16%,transparent 68%);mask:radial-gradient(circle,#000 16%,transparent 68%)}
+body[data-theme=slate] .cone{background:conic-gradient(from -32deg,rgba(255,209,102,.6) 0deg 64deg,transparent 64deg)}
+body[data-theme=night] .cone{background:conic-gradient(from -32deg,rgba(111,152,255,.6) 0deg 64deg,transparent 64deg)}
+@media (prefers-reduced-motion:reduce){.me::before{animation:none;opacity:.5}}
+
+/* note card */
+#card{position:fixed;left:8px;right:8px;bottom:calc(var(--safe-b) + 8px);margin:0 auto;max-width:520px;z-index:30;max-height:70vh;overflow-y:auto;overscroll-behavior:contain;
+  background-color:var(--paper);color:var(--paper-ink);border-radius:4px 4px 14px 14px;box-shadow:0 12px 40px rgba(0,0,0,.38);
+  background-image:linear-gradient(90deg,transparent 40px,var(--margin) 40px,var(--margin) 41.5px,transparent 41.5px),repeating-linear-gradient(transparent 0 31px,var(--rule) 31px 32px);
+  background-position:0 0,0 14px;padding:14px 16px 18px 54px;transform:translateY(calc(100% + 40px));transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+#card.on{transform:none}
+#card .x{position:absolute;top:6px;right:8px;border:0;background:none;color:var(--paper-ink);font-size:30px;width:40px;height:40px;line-height:1}
+.c-grp{font-size:16px;color:var(--paper-muted);display:flex;align-items:center;gap:7px;margin-right:36px}
+.c-grp i{width:10px;height:10px;border-radius:50%;background:var(--c)}
+.c-title{font-family:var(--hand);font-weight:700;font-size:38px;line-height:1;margin:2px 36px 6px 0}
+.c-title .s{color:var(--star);font-size:28px;vertical-align:4px}
+.hrs{display:inline-block;font-size:14px;line-height:1.25;color:#166534;background:#ecfdf3;border:1px solid #bbf7d0;border-radius:10px;padding:1px 8px;margin:0 4px 4px 0}
+.now{font-size:16px;margin-left:2px}
+.now.o{color:#15803d}.now.c{color:#c2410c}
+.c-dist{font-size:16px;color:var(--paper-muted);margin:2px 0 4px}
+.c-note{font-size:19px;line-height:32px;color:var(--paper-ink);margin:0}
+.c-warn{font-size:16px;color:var(--star);line-height:1.3;margin:6px 0 0}
+.c-warn::before{content:"↳ "}
+.c-booked{display:inline-block;border:1.6px solid var(--paper-ink);border-radius:50%;padding:8px 16px;transform:rotate(-3deg);font-family:var(--hand);font-size:23px;font-weight:700;margin:8px 0 2px}
+.c-approx{font-size:14px;color:var(--paper-muted);margin-top:6px}
+.c-plan{font-size:16px;color:var(--paper-muted);margin-top:4px}
+.c-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.hb{font-family:var(--print);font-size:18px;color:var(--paper-ink);background:transparent;border:1.6px solid var(--paper-ink);border-radius:255px 15px 225px 15px/15px 225px 15px 255px;padding:6px 15px;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.hb.fill{background:var(--paper-ink);color:var(--paper)}
+.hb svg{width:18px;height:18px;fill:currentColor}
+
+/* nav HUD */
+#navTop{position:fixed;top:calc(var(--safe-t) + 8px);left:8px;right:8px;max-width:560px;z-index:25;display:flex;gap:14px;align-items:center;background:var(--hud);color:var(--hud-t);border-radius:18px;padding:12px 16px;box-shadow:var(--sh)}
+#turnIcon{width:52px;height:52px;fill:currentColor;flex:none;transition:transform .25s}
+.nt-dist{font-size:34px;line-height:1}
+.nt-text{font-size:20px;line-height:1.2;opacity:.92}
+#navBot{position:fixed;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;z-index:25;background:var(--ui);color:var(--text);border-radius:22px 22px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.2);padding:12px 16px calc(var(--safe-b) + 12px)}
+.nb-eta{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.nb-eta b{font-size:30px;color:var(--ok);font-weight:400}
+.nb-eta span{font-size:18px;color:var(--muted)}
+.nb-to{font-size:17px;margin:2px 0 10px;color:var(--text)}
+.nb-btns{display:flex;flex-wrap:wrap;gap:8px}
+.nb-btns .btn[aria-pressed=true]{background:var(--ink);color:var(--ui)}
+.nb-btns .end{border-color:var(--no);color:var(--no);margin-left:auto}
+#btnRecenter{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sheet-h) + 14px);z-index:26;border:0;border-radius:22px;background:var(--ui);color:var(--ink);box-shadow:var(--sh);padding:10px 20px;font-size:18px}
+#simBadge{position:fixed;left:12px;top:calc(var(--safe-t) + 110px);z-index:19;background:var(--star);color:#fff;border-radius:14px;padding:4px 12px;font-size:15px;border:0;box-shadow:var(--sh)}
+body.navving #simBadge{top:calc(var(--safe-t) + 112px)}
+
+#toast{position:fixed;left:50%;top:calc(var(--safe-t) + 104px);transform:translate(-50%,-14px);opacity:0;z-index:40;background:var(--hud);color:var(--hud-t);padding:9px 16px;border-radius:14px;font-size:17px;max-width:88vw;text-align:center;pointer-events:none;transition:opacity .2s,transform .2s;box-shadow:var(--sh)}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+[hidden]{display:none!important}
+@media (min-width:700px){#top{left:16px}#sheet{left:16px;right:auto;margin:0;width:420px}#card{left:450px;right:16px;margin:0;bottom:16px}}
+</style>
+</head>
+<body data-theme="day">
+<div id="map" aria-label="Map"></div>
+
+<header id="top">
+  <div class="search">
+    <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3a7 7 0 0 1 5.6 11.2l5 5-1.4 1.4-5-5A7 7 0 1 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg>
+    <input id="q" type="search" placeholder="Search your places or an address" enterkeyhint="search" autocomplete="off" aria-label="Search">
+    <button id="qx" aria-label="Clear search" hidden>×</button>
+  </div>
+  <div class="chips" id="cityChips"></div>
+  <div id="results" class="results" hidden></div>
+</header>
+
+<div id="rail">
+  <button class="fab" id="btnTheme" aria-label="Change map style"></button>
+  <button class="fab" id="btnNorth" aria-label="Reset north" hidden><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 7 13h10z" fill="#d03a3a"/><path d="M12 22l5-9H7z" opacity=".45"/></svg></button>
+</div>
+<button class="fab" id="btnLocate" aria-label="Show my location"></button>
+<button id="simBadge" hidden>Test drive on · tap to stop</button>
+<button id="btnRecenter" hidden>Re-centre</button>
+
+<section id="sheet" aria-label="Places and plans">
+  <div class="grab" id="grab">
+    <div class="handle"></div>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" data-tab="near" aria-selected="true">Near me</button>
+      <button class="tab" role="tab" data-tab="plans" aria-selected="false">Plans</button>
+      <button class="tab" role="tab" data-tab="notes" aria-selected="false">Notes</button>
+    </div>
+  </div>
+  <div class="sbody" id="sbody"></div>
+</section>
+
+<div id="card" role="dialog" aria-modal="false" aria-label="Place notes"></div>
+
+<div id="navTop" hidden>
+  <svg id="turnIcon" viewBox="0 0 24 24"></svg>
+  <div><div class="nt-dist" id="ntDist"></div><div class="nt-text" id="ntText">Finding the way…</div></div>
+</div>
+<div id="navBot" hidden>
+  <div class="nb-eta"><b id="nbMin">–</b><span id="nbDist"></span><span id="nbClock"></span></div>
+  <div class="nb-to" id="nbTo"></div>
+  <div class="nb-btns">
+    <button class="btn" id="nbVoice" aria-pressed="false">Voice</button>
+    <button class="btn" id="nbWake" aria-pressed="false">Screen on</button>
+    <button class="btn" id="nbSkip">Skip stop</button>
+    <a class="btn" id="nbG" target="_blank" rel="noopener">Google Maps</a>
+    <button class="btn end" id="nbEnd">End</button>
+  </div>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<noscript>This map needs JavaScript turned on.</noscript>
+
+<script>
+(()=>{
+'use strict';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const LS={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+
+/* ---------- groups ---------- */
+const G={
+  fri:{c:'#2d5bd8',label:'Brussels, Friday',city:'Brussels'},
+  bxl:{c:'#2d5bd8',label:'Brussels, your base',city:'Brussels'},
+  mon:{c:'#7b4fd6',label:'Brussels, Monday',city:'Brussels'},
+  gent:{c:'#0e8f72',label:'Gent, day trip',city:'Gent'},
+  antw:{c:'#d03a6c',label:'Antwerpen, day trip',city:'Antwerpen'},
+  brug:{c:'#c98410',label:'Bruges, day trip',city:'Brugge'}
+};
+const CITIES=[
+  {k:'bxl',label:'Brussels',c:'#2d5bd8',center:[4.3555,50.8435],z:13.7},
+  {k:'gent',label:'Gent',c:'#0e8f72',center:[3.7245,51.0480],z:13.7},
+  {k:'antw',label:'Antwerpen',c:'#d03a6c',center:[4.4040,51.2195],z:14},
+  {k:'brug',label:'Bruges',c:'#c98410',center:[3.2250,51.2050],z:14},
+  {k:'ride',label:'Bike rides',c:'#c98410',center:[3.300,51.275],z:10.6}
+];
+
+/* ---------- icons ---------- */
+const IP={
+  sight:'M12 6.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z',
+  museum:'M12 2 2 7v2h20V7zM4 10h2.5v8H4zm4.5 0H11v8H8.5zm4.5 0h2.5v8H13zm4.5 0H20v8h-2.5zM2 19h20v3H2z',
+  food:'M6 2h1.6v6h1.2V2h1.6v6h1.2V2h1.6v7.2a3 3 0 0 1-2.4 2.9V22H8.4v-9.9A3 3 0 0 1 6 9.2zm11.6 0c1.6 0 2.4 2.6 2.4 6v5h-2v9h-2V2z',
+  coffee:'M3 8h14v5a5.5 5.5 0 0 1-5.5 5.5h-3A5.5 5.5 0 0 1 3 13zm14 1h1.6a2.8 2.8 0 0 1 0 5.6H17V13h1.6a1.2 1.2 0 0 0 0-2.4H17zM3 20h14v1.8H3zM8 2.5c1 1 1 2 0 3s-1 2 0 3h-1.5c-1-1-1-2 0-3s1-2 0-3zm4 0c1 1 1 2 0 3s-1 2 0 3h-1.5c-1-1-1-2 0-3s1-2 0-3z',
+  bar:'M6 3h12l-1.4 18H7.4zm2.2 2 .4 5h6.8l.4-5z',
+  park:'M12 2a6 6 0 0 0-6 6 5 5 0 0 0 1 3.1A4.5 4.5 0 0 0 11 18v4h2v-4a4.5 4.5 0 0 0 4-6.9A5 5 0 0 0 18 8a6 6 0 0 0-6-6z',
+  station:'M7 2h10a3 3 0 0 1 3 3v10a3 3 0 0 1-2 2.8l2 2.2v1h-2.4L15 18H9l-2.6 3H4v-1l2-2.2A3 3 0 0 1 4 15V5a3 3 0 0 1 3-3zM6.5 5v5h11V5zM8 12.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm8 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z',
+  hotel:'M3 5h2v8h7V8h6a3 3 0 0 1 3 3v9h-2v-3H5v3H3zm5.5 3a2 2 0 1 1 0 4 2 2 0 0 1 0-4z',
+  bike:'M5.5 11a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zm0 2a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zm13-2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zm0 2a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM13 4h3.5v2H15l1.9 5.4-1.9.7-.7-2L11.2 15.5H6.5v-2h3.6L12.9 9 12 6.5h-2v-2z',
+  village:'M12 3 3 10v11h6v-6h6v6h6V10z',
+  pin:'M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 4.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z'
+};
+const icon=t=>`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${IP[t]||IP.sight}"/></svg>`;
+const UI={
+  sun:'<svg class="ico" viewBox="0 0 24 24"><path d="M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zM11 1h2v3h-2zm0 19h2v3h-2zM1 11h3v2H1zm19 0h3v2h-3zM4.2 2.8l2.1 2.1-1.4 1.4-2.1-2.1zm13.5 13.5 2.1 2.1-1.4 1.4-2.1-2.1zM2.8 19.8l2.1-2.1 1.4 1.4-2.1 2.1zM16.3 4.9l2.1-2.1 1.4 1.4-2.1 2.1z"/></svg>',
+  leaf:'<svg class="ico" viewBox="0 0 24 24"><path d="M20 3C9 3 4 8 4 15c0 1.6.4 3 1 4.3L3 21.3 4.4 22.7l2-2C7.6 21.6 9.2 22 11 22c7 0 10-6 9-19zM9 18.5c1.2-3.6 3.6-6.6 7-8.5-3 2.5-5 5.4-5.8 9z"/></svg>',
+  moon:'<svg class="ico" viewBox="0 0 24 24"><path d="M14.5 2A9.5 9.5 0 1 0 22 16.5 8 8 0 0 1 14.5 2z"/></svg>',
+  loc:'<svg class="ico" viewBox="0 0 24 24"><path d="M11 1h2v3.1A8 8 0 0 1 19.9 11H23v2h-3.1A8 8 0 0 1 13 19.9V23h-2v-3.1A8 8 0 0 1 4.1 13H1v-2h3.1A8 8 0 0 1 11 4.1zm1 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm0 3a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>',
+  arrow:'<svg class="ico" viewBox="0 0 24 24"><path d="M12 2 4.5 21 12 17l7.5 4z"/></svg>',
+  walk:'<svg viewBox="0 0 24 24"><path d="M13.5 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM10 7.5l3-1c1-.3 2 .2 2.4 1.1l1.4 3.2 2.7 1.4-.9 1.8-3.2-1.6-.8-1.6-1 4.1 2.4 2.6V23h-2v-5.6l-2.4-2.5-.8 3.6L5.6 21l-1.2-1.6 3.4-2.4 1.6-7-1.5.6V13H6V9.3z"/></svg>',
+  ext:'<svg viewBox="0 0 24 24"><path d="M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14zM5 5h6v2H7v10h10v-4h2v6H5z"/></svg>'
+};
+const COUPLE=`<svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24" fill="#fdfcf7" stroke="#1e3a8a" stroke-width="2.4"/><path d="M26 11.6c-.9-1.5-3.3-1.2-3.3.7 0 1.5 2 2.6 3.3 3.6 1.3-1 3.3-2.1 3.3-3.6 0-1.9-2.4-2.2-3.3-.7z" fill="#e0483e"/><circle cx="18.6" cy="18.4" r="4.5" fill="#1e3a8a"/><rect x="14.1" y="23.6" width="9" height="11.4" rx="4.2" fill="#1e3a8a"/><rect x="15.2" y="32.4" width="2.8" height="9" rx="1.4" fill="#1e3a8a"/><rect x="19.2" y="32.4" width="2.8" height="9" rx="1.4" fill="#1e3a8a"/><circle cx="33.4" cy="18.4" r="4.5" fill="#c2410c"/><circle cx="37.4" cy="15.4" r="2.2" fill="#c2410c"/><path d="M29.8 24.6Q33.4 22.4 37 24.6L39.4 35.2Q33.4 37.2 27.4 35.2Z" fill="#c2410c"/><rect x="30.4" y="34.2" width="2.6" height="7.2" rx="1.3" fill="#c2410c"/><rect x="34" y="34.2" width="2.6" height="7.2" rx="1.3" fill="#c2410c"/><path d="M22.4 26.2 26 31" stroke="#1e3a8a" stroke-width="2.8" stroke-linecap="round"/><path d="M29.8 26.2 26 31" stroke="#c2410c" stroke-width="2.8" stroke-linecap="round"/><circle cx="26" cy="31.2" r="2" fill="#f0c19a"/></svg>`;
+
+/* ---------- places (from your trip notes) ----------
+ hours code: f=Fri s=Sat u=Sun m=Mon, "-" closed, A = always open; ranges "10-17", several "12-15,17-22"
+ x: s=from your notes (★), b=booked text, w=warning, u=info link, a=approximate pin */
+const RAW=[
+ ['hotel','bxl','hotel','The Hotel Brussels',50.837402,4.357461,'A','','Your base. Drop bags here on Friday; on Monday at 16:00 collect them and take a taxi straight to the station.','The Hotel Brussels, Brussels'],
+ ['grandsablon','fri','sight','Grand Sablon',50.8405,4.3557,'A','','Walk down here after dropping your bags. At night stick to the Grand-Place, Mont des Arts and Sablon.','Place du Grand Sablon Brussels'],
+ ['petitsablon','fri','park','Petit Sablon garden',50.8394,4.3567,'','','Little garden across from the Grand Sablon.','Square du Petit Sablon Brussels'],
+ ['marcolini','fri','food','Pierre Marcolini',50.8403,4.3549,'f10-19:30','Fri 10:00–19:30','Chocolate, on the Sablon.','Pierre Marcolini Grand Sablon Brussels'],
+ ['grandplace','fri','sight','Grand-Place',50.8467,4.3525,'A','','Friday 13:30, then again by night at 20:00, when it’s lit up.','Grand-Place Brussels'],
+ ['galeries','fri','sight','Galeries St-Hubert',50.8478,4.3549,'A','always open','Covered arcade right by the Grand-Place.','Galeries Royales Saint-Hubert Brussels',{s:1}],
+ ['fritland','fri','food','Fritland',50.8479,4.3500,'f11-1;s11-1;u11-1;m11-1','daily 11:00–01:00','Good fries, city centre. Friday lunch option.','Fritland Brussels'],
+ ['tabora','fri','food','Tabora',50.8475,4.3508,'f9-24;s9-24;u9-24;m9-24','from 9:00, late','Good fries, city centre. Friday lunch option.','Tabora frites Brussels'],
+ ['capitale','fri','coffee','Café Capitale',50.8459,4.3497,'f8-19','Fri 8:00–19:00','Specialty coffee and cinnamon buns, 3 min from Grand-Place.','Café Capitale Rue du Midi 45 Bruxelles'],
+ ['montdesarts','fri','sight','Mont des Arts',50.8441,4.3571,'A','','Best city view, then the museum. Also the way back uphill to the hotel at night.','Mont des Arts Brussels'],
+ ['magritte','fri','museum','Magritte Museum',50.8425,4.3584,'f10-17;m-','Fri 10:00–17:00','Last entry before 17:00. Book online.','Magritte Museum Brussels',{u:'https://fine-arts-museum.be'}],
+ ['dansaert','fri','sight','Rue Dansaert',50.8500,4.3470,'A','','Stroll via the Bourse, design shops on the way to dinner.','Rue Antoine Dansaert Brussels'],
+ ['spinnekopke','fri','food','In ’t Spinnekopke',50.8486,4.3455,'f12-23','Fri 12:00–23:00','Local + tourists, high quality. Takes reservations; part of the interior is from the 18th century.','In \'t Spinnekopke Brussels',{s:1,b:'Booked · Fri 9 Oct 18:00',w:'After dinner head east to the Bourse, not south or across the canal'}],
+ ['cirio','fri','bar','Le Cirio',50.8483,4.3507,'f10-24','until 24:00','A beer after Grand-Place by night.','Le Cirio Brussels'],
+ ['nuet','fri','food','Nuetnigenough',50.8451,4.3504,'f17-24;m17-24','Fri & Mon from 17:00','Local + tourists, high quality. Dinner or a beer, walk-in.','Nuetnigenough Brussels',{s:1}],
+ ['findesiecle','fri','food','Fin de Siècle',50.8490,4.3470,'','','Very touristy.','Fin de Siècle restaurant Brussels'],
+ ['neufvoisins','fri','food','9 et Voisins',50.8478,4.3472,'f17-24;s17-24;u17-24;m17-24','daily 17:00–24:00','Very touristy.','9 et Voisins restaurant Brussels'],
+ ['chouke','fri','food','Chouke',50.8497,4.3463,'f12-23;s12-23;u12-23;m12-23','daily 12:00–23:00','Fries, on Rue du Vieux Marché aux Grains.','Chouke Brussels',{s:1}],
+ ['fritflagey','mon','food','Frit Flagey',50.8275,4.3726,'f11:30-2;m18-2','Fri 11:30–02:00 · Mon from 18:00','Fries, outside the centre. Only opens at 18:00 on Mondays, so on Monday it’s Maison Antoine.','Frit Flagey Brussels'],
+ ['antoine','mon','food','Maison Antoine',50.8379,4.3824,'f11:30-1;s11:30-1;u11:30-1;m11:30-1','daily 11:30–01:00','Finish Monday here, 15 min walk from the Ixelles Ponds.','Maison Antoine Place Jourdan Bruxelles',{s:1}],
+ ['palais','mon','sight','Palais de Justice lift',50.8378,4.3518,'f7-23:30;s7-23:30;u7-23:30;m7-23:30','7:00–23:30, free','Big view, then the glass lift down into the Marolles.','Palais de Justice elevator Place Poelaert Brussels'],
+ ['jeudeballe','mon','sight','Marolles flea market',50.8366,4.3459,'m9-14','Mon 9:00–14:00','Place du Jeu de Balle, vintage finds. Cash only.','Place du Jeu de Balle Brussels'],
+ ['blaes','mon','sight','Rue Blaes & Rue Haute',50.8392,4.3480,'','','Antique and design shops.','Rue Blaes Brussels',{w:'Walk north toward the centre, not south to Porte de Hal'}],
+ ['comics','mon','sight','Comic Book Route',50.8448,4.3489,'A','outdoor, anytime','Street murals, free open-air art.','Comic Book Route mural Brussels'],
+ ['chatelain','mon','food','Place du Châtelain',50.8222,4.3612,'','','Lunch on a local terrace. Tram 92 up Avenue Louise.','Place du Châtelain Brussels'],
+ ['horta','mon','museum','Horta House',50.8243,4.3555,'m-','museum closed Mon','Art Nouveau walk. The museum is closed on Mondays, so see it from outside.','Horta Museum Brussels'],
+ ['hannon','mon','sight','Hôtel Hannon',50.8193,4.3585,'A','façade','Art Nouveau façades.','Hôtel Hannon Brussels'],
+ ['ponds','mon','park','Ixelles Ponds',50.8236,4.3731,'A','','Then fries at Maison Antoine.','Ixelles Ponds Brussels'],
+
+ ['g_station','gent','station','Gent-Sint-Pieters',51.0356,3.7107,'A','','Start here. Tired legs at the end? Tram 1 from Korenmarkt runs back to the station.','Gent-Sint-Pieters station'],
+ ['g_miljoen','gent','sight','Miljoenenkwartier',51.0372,3.7155,'A','','For the architecture.','Miljoenenkwartier Gent',{a:1}],
+ ['g_citadel','gent','park','Citadelpark',51.0378,3.7222,'A','','The botanical garden is at its edge, an easy add-on.','Citadelpark Gent'],
+ ['g_botan','gent','park','Botanical garden',51.0357,3.7247,'s10-18;u10-18','Sat & Sun 10:00–18:00, free','About 220 years old. At the edge of Citadelpark.','Plantentuin Universiteit Gent',{s:1}],
+ ['g_spplein','gent','sight','Sint-Pietersplein',51.0425,3.7266,'A','','','Sint-Pietersplein Gent'],
+ ['g_spabdij','gent','park','Sint-Pieters abbey garden',51.0420,3.7280,'f10-18;s10-18;u10-18','Tue–Sun 10:00–18:00','The garden behind the abbey, and the church next to it.','Sint-Pietersabdij Gent',{s:1}],
+ ['g_spkerk','gent','sight','Sint-Pieterskerk',51.0428,3.7287,'','','The church by the abbey.','Onze-Lieve-Vrouw Sint-Pieterskerk Gent'],
+ ['g_winter','gent','sight','Wintercircus',51.0476,3.7272,'s9-16;u9-18','Sat 9–16 · Sun 9–18','De Krook is right next door.','Wintercircus Gent'],
+ ['g_krook','gent','sight','De Krook library',51.0480,3.7282,'s10-18;u-','Sat 10–18 · closed Sun','3rd–4th floor, nice view.','De Krook library Gent',{s:1}],
+ ['g_baafs','gent','sight','Sint-Baafs cathedral',51.0530,3.7270,'s8:30-17:30;u13-17:30','Sat 8:30–17:30 · Sun from 13:00','','Sint-Baafskathedraal Gent'],
+ ['g_belfort','gent','sight','Belfort',51.0537,3.7248,'f10-18;s10-18;u10-18;m10-18','daily 10:00–18:00','','Belfort van Gent'],
+ ['g_koren','gent','sight','Korenmarkt',51.0545,3.7212,'A','','Tram 1 from here runs back to the station.','Korenmarkt Gent'],
+ ['g_oudepost','gent','sight','Oude Post',51.0547,3.7219,'','','On the Korenmarkt.','Oude Post Korenmarkt Gent'],
+ ['g_korenlei','gent','sight','Korenlei',51.0553,3.7193,'A','','','Korenlei Gent'],
+ ['g_graven','gent','museum','Gravensteen',51.0573,3.7208,'f10-18;s10-18;u10-18;m10-18','daily 10:00–18:00','Book a slot if you have time, do the audio tour.','Gravensteen Gent',{u:'https://visit.gent.be'}],
+ ['g_arnold','gent','museum','Huis Arnold Vander Haeghen',51.0508,3.7218,'s14-18;u10-18','Sat 14–18 · Sun 10–18 (free)','','Huis Arnold Vander Haeghen Gent'],
+ ['g_hane','gent','museum','Old French Palace',51.0511,3.7224,'s14-18;u10-18','Sat 14–18 · Sun 10–18 (free)','Hotel d’Hane-Steenhuyse, almost opposite Huis Arnold. Where French kings hid when things got iffy back home. Look for the “Treaty of Ghent” plaque nearby, a piece of unknown history.','Hotel d\'Hane-Steenhuyse Gent'],
+ ['g_baafsabdij','gent','sight','Sint-Baafs abbey ruins',51.0535,3.7388,'f14-18;s14-18;u14-18','Fri–Sun 14:00–18:00 only','The abbey ruins, not the Sint-Baafs cathedral on the route. Coyendanspark is next to it.','Sint-Baafsabdij Gent',{s:1}],
+ ['g_coyendans','gent','park','Coyendanspark',51.0528,3.7405,'A','','Next to the abbey ruins.','Coyendanspark Gent',{s:1,a:1}],
+ ['g_lousberg','gent','park','Lousbergspark',51.0462,3.7393,'A','','Ancient garden.','Lousbergspark Gent',{s:1}],
+ ['g_astro','gent','food','Astro Boy',51.0612,3.7318,'s18-22;u-','dinner Tue–Sat 18–22 · closed Sun','Dinner, on Kongostraat.','Astro Boy Gent',{s:1,a:1}],
+ ['g_edelrot','gent','bar','Edelrot',51.0540,3.7255,'s15-24;u15-23','Sat from 15:00 · Sun 15–23','Right next to the Belfort.','Edelrot Gent',{s:1}],
+ ['g_clifton','gent','coffee','Café Clifton',51.0700,3.7300,'','hours not listed','And the area around Van Beverenplein, north of the centre, about 2.5 km from Korenmarkt.','Café Clifton Gent',{s:1,a:1}],
+ ['g_lumumba','gent','park','Patrice Lumumbapark',51.0150,3.7140,'A','open 24 h','And the surroundings. Far south in Zwijnaarde, about 4 km from the station.','Patrice Lumumbapark Gent',{s:1,a:1}],
+
+ ['a_centraal','antw','station','Antwerpen-Centraal',51.2172,4.4211,'A','','Look up in the hall, the “railway cathedral”.','Antwerpen-Centraal station'],
+ ['a_plantin','antw','sight','Plantin premetro',51.2105,4.4180,'A','','5 min south, go down for the wall art.','Plantin premetro station Antwerpen',{a:1,u:'https://en.wikipedia.org/wiki/Plantin_premetro_station'}],
+ ['a_keizer','antw','museum','Keizersbastion',51.2121,4.4135,'','','The small exposition. Check it’s open before you go.','Keizersbastion Antwerpen',{a:1,u:'https://www.antwerpenmorgen.be/nl/projecten/keizersbastion/over'}],
+ ['a_caffe','antw','coffee','Caffènation',51.2128,4.4118,'s9-17;u10-17','Sat 9–17 · Sun 10–17','Coffee, a few steps from Keizersbastion.','Caffenation Mechelsesteenweg 16 Antwerpen',{a:1}],
+ ['a_beurs','antw','sight','Handelsbeurs',51.2180,4.4056,'s10-18;u10-18','Sat & Sun 10:00–18:00','The first stock exchange in the world (1531), free. Walking along the Meir from Centraal, right before the Burger King there’s a small alley on your right. After a visit Queen Victoria decided London needed one too.','Handelsbeurs Antwerpen'],
+ ['a_fiera','antw','food','Fiera',51.2177,4.4050,'s12-23:30;u12-23','Sat 12–23:30 · Sun 12–23','Fancy dining in a medieval building by the Handelsbeurs.','Fiera Lange Nieuwstraat Antwerpen',{a:1}],
+ ['a_meir','antw','sight','Meir',51.2183,4.4090,'A','','The big shopping street.','Meir Antwerpen'],
+ ['a_groen','antw','sight','Groenplaats',51.2193,4.4012,'A','','Shops and architecture.','Groenplaats Antwerpen'],
+ ['a_cathedral','antw','sight','Cathedral',51.2203,4.4015,'s10-15;u13-17','Sat 10–15 · Sun 13–17','On Sunday only from 13:00, so go in after lunch.','Onze-Lieve-Vrouwekathedraal Antwerpen'],
+ ['a_grotemarkt','antw','sight','Grote Markt',51.2213,4.3997,'A','','Lunch here, the biggest cluster from your list.','Grote Markt Antwerpen'],
+ ['a_fishagogo','antw','food','Fish a gogo',51.2207,4.4004,'s12-21;u12-19','Sat 12–21 · Sun 12–19','Little seafood place overlooking the cathedral. Seats outside for small dishes and a cup of wine or beer.','Fish A\'Gogo Handschoenmarkt Antwerpen',{a:1}],
+ ['a_hofke','antw','food','’t Hofke',51.2206,4.4024,'s12-22:30;u12-22:30','Sat & Sun 12–22:30','Authentic Belgian food in the oldest street in Antwerp (15th c.), the Vlaaikensgang.','\'t Hofke Vlaaikensgang Antwerpen'],
+ ['a_libanezza','antw','food','Libanezza',51.2196,4.3978,'s13-22;u13-22','weekends from 13:00','Great Lebanese food, Hoogstraat.','Libanezza Hoogstraat Antwerpen',{a:1}],
+ ['a_7schaken','antw','food','De 7 Schaken',51.2215,4.3988,'s12-23;u12-22:30','Sat 12–23 · Sun 12–22:30','Authentic Belgian food.','De Zeven Schaken Braderijstraat Antwerpen',{a:1}],
+ ['a_frituur','antw','food','Frituur ’t Stad',51.2210,4.4025,'f12-24;s12-24;u12-24;m12-24','daily 12:00–24:00','For snacks. Any frituur works, but this is the favourite.','Frituur \'t Stad Melkmarkt Antwerpen',{a:1}],
+ ['a_arte','antw','food','Arte',51.2208,4.3974,'s12-14:30,18-22:30;u12-14:30,18-22:30','Sat & Sun 12–14:30, 18–22:30','A place for locals, good honest food, serves what they buy that day.','Arte Suikerrui Antwerpen',{a:1}],
+ ['a_maithai','antw','food','Mai Thai',51.2210,4.3968,'s12-15,17-23;u12-15,17-22','Sat 12–15, 17–23 · Sun 12–15, 17–22','Great Thai in the city centre.','Mai Thai Suikerrui Antwerpen',{a:1}],
+ ['a_shuk','antw','food','Shuk',51.2228,4.4038,'s11:30-22;u-','Sat 11:30–22 · closed Sun','Near Grote Markt. Not Sunday.','Shuk Minderbroedersrui Antwerpen',{a:1}],
+ ['a_kamino','antw','food','Kamino',51.2190,4.3990,'s12-15,17:30-22;u-','Sat 12–15, 17:30–22 · closed Sun','Sharing, near Groenplaats. Not Sunday.','Camino Muntstraat 4 Antwerpen',{a:1}],
+ ['a_invincible','antw','food','Invincible',51.2203,4.3990,'s-;u-','closed Sat & Sun','Very fancy, reserve well in advance. Closed at weekends, so not possible on this trip.','Invincible Haarstraat Antwerpen',{a:1}],
+ ['a_ruien','antw','museum','Ruien',51.2212,4.3979,'s10-17:30;u10-17:30','Tue–Sun 10:00–17:30','Underground, entrance on Suikerrui. Book a slot ahead.','De Ruien Suikerrui Antwerpen',{u:'https://www.ruien.be/'}],
+ ['a_tunnel','antw','sight','Pedestrian tunnel',51.2196,4.3946,'A','open 24 h','Wooden escalators, go down and walk a bit.','Sint-Annatunnel Antwerpen',{u:'https://visit.antwerpen.be/en/the-underpass'}],
+ ['a_steen','antw','sight','Het Steen',51.2227,4.3976,'f10-18;s10-18;u10-18;m10-18','daily 10:00–18:00','End of the classic walk, free rooftop view.','Het Steen Antwerpen'],
+ ['a_paulus','antw','sight','Saint Paul’s church',51.2238,4.4003,'s14-17;u14-17','daily 14:00–17:00','See the crypt.','Sint-Pauluskerk Antwerpen',{u:'https://www.sintpaulusantwerpen.be/en/art-history/construction-history/crypt/'}],
+ ['a_dilbi','antw','food','Dilbi',51.2236,4.4012,'','hours not listed','Right on the square by Saint Paul’s.','Dilbi BBQ Veemarkt Antwerpen',{a:1}],
+ ['a_mas','antw','museum','MAS',51.2289,4.4048,'s10-17;u10-17','Sat & Sun 10–17','Go up for the view. Museum closes 17:00.','MAS Museum aan de Stroom Antwerpen'],
+ ['a_wolf','antw','food','Wolf food market',51.2277,4.4077,'s12-22;u12-21:30','Sat 12–22 · Sun 12–21:30','A drink or bite to end the day, right next to the MAS.','Wolf Sharing Food Market Antwerpen'],
+ ['a_dansing','antw','food','Dansing Chocola',51.2135,4.3928,'s11-23;u-','Sat 11–23 · closed Sun','Zuid detour, Kloosterstraat. Not Sunday.','Dansing Chocola Kloosterstraat Antwerpen',{a:1}],
+ ['a_funk','antw','food','Bakkerij Funk',51.2105,4.3955,'s9-18;u9-18','Sat & Sun 9–18','Zuid detour.','Bakkerij Funk Kronenburgstraat Antwerpen',{a:1}],
+ ['a_andy','antw','coffee','Andy Roasters',51.2075,4.3993,'s8-16;u8-16','Sat & Sun 8–16','Zuid detour.','Andy Roasters Amerikalei Antwerpen',{a:1}],
+ ['a_vanhecke','antw','food','Wafelhuis Van Hecke',51.2135,4.3990,'','check before going','Oldest waffle house in Antwerp, 10 min south of Groenplaats.','Wafelhuis Van Hecke Nationalestraat Antwerpen',{a:1}],
+ ['a_yalla','antw','food','Yalla Yalla',51.1992,4.4315,'s18-22;u18-22','daily 18–22','Berchem, dinner only from 18:00.','Yalla Yalla Tramplein Berchem',{a:1}],
+ ['a_cheese','antw','food','The Only Cheese',51.2030,4.4265,'s9-18;u8:30-13','Sat 9–18 · Sun 8:30–13','Berchem. On Sunday only until 13:00.','Only Cheese Boomgaardstraat Antwerpen',{a:1}],
+ ['a_boeken','antw','museum','Boekenberg natural history',51.2055,4.4705,'s-;u14-18','Sun 14:00–18:00 only','Out east in Deurne, a tram ride off the route.','Natuurhistorisch Museum Boekenberg Deurne',{a:1,u:'https://www.musemap.art/en/antwerp/museum/natural-history-museum-boekenberg'}],
+ ['a_brial','antw','bar','Bar Brial',51.1685,4.4410,'','likely closed','Sharing, Mortsel, out of town. It’s a summer bar at Fort 4, likely closed by October.','Bar Brial Fort 4 Mortsel',{a:1}],
+
+ ['b_station','brug','station','Brugge station',51.1972,3.2177,'A','','Ben’s Bike is 5 min away, on ’t Zand.','Brugge station'],
+ ['b_bens','brug','bike','Ben’s Bike',51.2046,3.2177,'f10-14;s10-14;u10-14;m10-14','pick-up daily 10:00–14:00','’t Zand, 5 min from the station. Easy drop-off in the evening. Ask about a tandem.','Ben\'s Bike \'t Zand 34 Brugge',{a:1}],
+ ['b_fietspunt','brug','bike','Fietspunt',51.1975,3.2165,'s-;u-','closed weekends','At the station. Has duo bikes, but it’s closed on weekends.','Fietspunt Brugge station'],
+ ['b_damme','brug','village','Damme',51.2510,3.2810,'A','','About 20 min in. Visit, eat a pancake and have a Belgian beer.','Damme Belgium'],
+ ['b_kloeffe','brug','food','Ter Kloeffe',51.2516,3.2826,'s11:30-19;u11:30-19','Sat & Sun 11:30–19','Pancakes. Not Wed/Thu.','Ter Kloeffe Damme',{a:1}],
+ ['b_tante','brug','food','Tante Marie',51.2507,3.2815,'s-;u10-18','Sun 10–18 · closed Sat','Cakes. Not Saturday.','Tante Marie Kerkstraat Damme',{a:1}],
+ ['b_smisse','brug','bar','The Smisse',51.2509,3.2812,'s10-24;u10-24','Sat & Sun 10–24','For a beer. Not Mon/Tue.','the Smisse Kerkstraat 6 Damme',{a:1}],
+ ['b_hoeke','brug','village','Hoeke',51.2855,3.3305,'A','','Along the tree-lined Damse Vaart canal.','Hoeke Damme'],
+ ['b_stanna','brug','village','Sint Anna ter Muiden',51.3110,3.3770,'A','','Tiny village, first stop in the Netherlands.','Sint Anna ter Muiden',{a:1}],
+ ['b_sluis','brug','village','Sluis',51.3085,3.3860,'A','','Carry your ID. Climb the Belfort, the only belfry in the Netherlands.','Sluis Netherlands'],
+ ['b_sluisbelfort','brug','sight','Belfort van Sluis',51.3089,3.3868,'s13-16:30;u13-16:30','Wed–Sun 13:00–16:30','The only belfry in the Netherlands.','Belfort van Sluis',{a:1}],
+ ['b_westkapelle','brug','village','Westkapelle',51.3170,3.2930,'A','','A different road home.','Westkapelle Knokke-Heist',{a:1}],
+ ['b_dudzele','brug','village','Dudzele',51.2740,3.2295,'A','','','Dudzele',{a:1}],
+ ['b_koolkerke','brug','village','Koolkerke',51.2425,3.2490,'A','','','Koolkerke',{a:1}],
+ ['b_knokke','brug','village','Knokke-Heist',51.3530,3.2880,'A','','Beach and sea dike.','Knokke-Heist',{a:1}],
+ ['b_zwin','brug','park','Het Zwin',51.3620,3.3640,'s10-17;u10-17','Tue–Sun 10–17','Nature park at the far east end, about 5 km more each way.','Zwin Natuur Park Knokke',{a:1}],
+ ['b_belfry','brug','museum','Belfry',51.2085,3.2245,'f9-20;s9-20;u9-20;m9-20','daily 9:00–20:00','Definitely climb it. 366 steps, timed tickets, book ahead.','Belfort Brugge Markt',{u:'https://www.museabrugge.be'}],
+ ['b_albert1','brug','food','Chez Albert',51.2080,3.2257,'s9-23;u9-23','Sat & Sun 9–23','Waffles, next to the Belfry.','Chez Albert Breidelstraat 16 Brugge',{a:1}],
+ ['b_albert2','brug','food','Chez Albert, Katelijnestraat',51.2018,3.2253,'s9-23;u9-23','Sat & Sun 9–23','The second one, on the way to Minnewater.','Chez Albert Katelijnestraat 32 Brugge',{a:1}],
+ ['b_gruuthuse','brug','museum','Gruuthuse',51.2054,3.2246,'s9:30-17;u9:30-17','Sat & Sun 9:30–17','If you’re into art. Closed Wednesdays.','Gruuthusemuseum Brugge'],
+ ['b_vesten','brug','park','The Vesten',51.2132,3.2368,'A','','Walk the Vesten (7 km), then pick a nice street back to the centre and get lost in the little streets. From the Kruisvest they lead to Adornes.','Kruisvest Brugge'],
+ ['b_gentpoort','brug','sight','Gentpoort',51.2010,3.2333,'A','','Summer bar here, likely closed in October.','Gentpoort Brugge'],
+ ['b_adornes','brug','museum','Adornes Chapel',51.2133,3.2322,'s10-17;u-','Sat 10–17 · closed Sun','Otherworldly.','Adornesdomein Peperstraat Brugge'],
+ ['b_frituur','brug','food','Frituur De Gentpoorte',51.2012,3.2340,'s11:30-13:30,17-21:30;u11:30-13:30,17-21:30','Sat & Sun 11:30–13:30, 17–21:30','Chips, takeaway. Thu–Sun only.','Frituur De Gentpoorte Brugge',{a:1}],
+ ['b_minnewater','brug','bar','Kasteel Minnewater',51.1986,3.2268,'s11-21;u11-21','Sat & Sun 11–21','Drink here, then dinner nearby. Cash only, closed Wednesdays.','Kasteel Minnewater Brugge'],
+ ['b_inthemood','brug','food','In the Mood',51.1978,3.2262,'s18-23:30;u18-23:30','Sat & Sun 18–23:30','Dinner in the park. Book ahead.','In The Mood dinner in the park Minnewater Brugge',{a:1}]
+];
+const tm=s=>{const[h,m='0']=s.split(':');return(+h)*60+(+m)};
+function parseH(code){
+  if(!code) return null; if(code==='A') return 'A';
+  const o={};
+  code.split(';').forEach(seg=>{const d=seg[0],r=seg.slice(1);o[d]=r==='-'?[]:r.split(',').map(x=>{const[a,b]=x.split('-').map(tm);return[a,b<=a?b+1440:b]})});
+  return o;
+}
+const P=RAW.map(([id,g,t,n,lat,lng,hc,ht,note,q,x])=>({id,g,t,n,lat,lng,hours:parseH(hc),ht,note,q:q||`${n} ${G[g].city}`,...(x||{})}));
+const PI=Object.fromEntries(P.map(p=>[p.id,p]));
+
+/* ---------- plans ---------- */
+const PLANS=[
+  {id:'fri',title:'Friday, the museum day',sub:'Arrive midday. Brussels centre on foot.',mode:'foot',g:'fri',stops:[['hotel','12:30'],['grandsablon','12:50'],['grandplace','13:30'],['capitale','14:15'],['montdesarts','14:45'],['magritte','15:00'],['dansaert','17:00'],['spinnekopke','18:00'],['grandplace','20:00'],['hotel','22:00']]},
+  {id:'gent',title:'Gent walk',sub:'Sat or Sun. From the station on foot, through the centre and back.',mode:'foot',g:'gent',stops:[['g_station'],['g_miljoen'],['g_citadel'],['g_spplein'],['g_spabdij'],['g_winter'],['g_baafs'],['g_belfort'],['g_koren'],['g_oudepost'],['g_korenlei'],['g_graven'],['g_arnold'],['g_hane'],['g_station']]},
+  {id:'antw',title:'Antwerpen loop',sub:'Sat or Sun. From Centraal, on foot, everything on one loop.',mode:'foot',g:'antw',stops:[['a_centraal'],['a_plantin'],['a_keizer'],['a_beurs'],['a_groen'],['a_cathedral'],['a_grotemarkt'],['a_ruien'],['a_tunnel'],['a_steen'],['a_paulus'],['a_mas'],['a_wolf'],['a_centraal']]},
+  {id:'brugA',title:'Bruges, Ride A',sub:'Damme › Sluis › Bruges. 43.8 km, about 2 h 15 of riding, mostly flat, crosses into the Netherlands.',mode:'bike',g:'brug',stops:[['b_bens','10:00'],['b_damme','11:00'],['b_hoeke'],['b_stanna'],['b_sluis'],['b_westkapelle'],['b_dudzele'],['b_koolkerke'],['b_bens','16:30']]},
+  {id:'brugB',title:'Bruges, Ride B',sub:'Damme › Knokke-Heist › Bruges. 39.5 km, about 2 h 05 of riding.',mode:'bike',g:'brug',stops:[['b_bens','10:00'],['b_damme','11:00'],['b_westkapelle'],['b_knokke'],['b_dudzele'],['b_koolkerke'],['b_bens','16:30']]},
+  {id:'mon',title:'Monday, outdoor art day',sub:'Leave late afternoon.',mode:'foot',g:'mon',stops:[['hotel','09:00'],['palais','09:45'],['jeudeballe','10:00'],['blaes','11:00'],['comics','11:45'],['chatelain','13:00'],['horta','14:00'],['hannon','14:20'],['ponds','15:00'],['antoine','15:30'],['hotel','16:00']]}
+];
+const PLI=Object.fromEntries(PLANS.map(p=>[p.id,p]));
+
+/* ---------- geo helpers ---------- */
+const R2=Math.PI/180;
+function hav(a,b){const dLat=(b.lat-a.lat)*R2,dLng=(b.lng-a.lng)*R2,s=Math.sin(dLat/2)**2+Math.cos(a.lat*R2)*Math.cos(b.lat*R2)*Math.sin(dLng/2)**2;return 12742000*Math.asin(Math.min(1,Math.sqrt(s)))}
+const havLL=(a,b)=>hav({lat:a[1],lng:a[0]},{lat:b[1],lng:b[0]});
+function bearing(a,b){const y=Math.sin((b[0]-a[0])*R2)*Math.cos(b[1]*R2),x=Math.cos(a[1]*R2)*Math.sin(b[1]*R2)-Math.sin(a[1]*R2)*Math.cos(b[1]*R2)*Math.cos((b[0]-a[0])*R2);return(Math.atan2(y,x)/R2+360)%360}
+const fmtDist=m=>m<950?`${Math.max(10,Math.round(m/10)*10)} m`:`${(m/1000).toFixed(m<9500?1:0)} km`;
+const SPEED={foot:80,bike:250};
+const minsFor=(m,mode)=>Math.max(1,Math.round(m/SPEED[mode]));
+const fmtMin=m=>m<60?`${m} min`:`${Math.floor(m/60)} h ${String(m%60).padStart(2,'0')}`;
+const fmtT=m=>{const h=Math.floor(m/60);return`${h===24?24:h%24}:${String(m%60).padStart(2,'0')}`};
+const clock=d=>`${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+const compassWord=b=>['north','north-east','east','south-east','south','south-west','west','north-west'][Math.round(((b%360)+360)%360/45)%8];
+const lerpAng=(a,b,t)=>{if(a==null)return b;const d=((b-a+540)%360)-180;return(a+d*t+360)%360};
+function circle(c,r){const pts=[];for(let i=0;i<=48;i++){const a=i/48*2*Math.PI;pts.push([c.lng+r*Math.sin(a)/(111320*Math.cos(c.lat*R2)),c.lat+r*Math.cos(a)/110540])}return{type:'Feature',geometry:{type:'Polygon',coordinates:[pts]}}}
+const EMPTY={type:'FeatureCollection',features:[]};
+
+/* ---------- opening hours ---------- */
+const DK={0:'u',1:'m',5:'f',6:'s'};
+function openState(p,now=new Date()){
+  const h=p.hours; if(!h) return null; if(h==='A') return{open:true,txt:'open'};
+  const mins=now.getHours()*60+now.getMinutes(), k=DK[now.getDay()], yk=DK[(now.getDay()+6)%7];
+  if(yk&&h[yk]) for(const[,b] of h[yk]) if(b>1440&&mins<b-1440) return{open:true,txt:`open now, until ${fmtT(b-1440)}`};
+  if(!k||!(k in h)) return null;
+  const rs=h[k]; if(!rs.length) return{open:false,txt:'closed today'};
+  for(const[a,b] of rs) if(mins>=a&&mins<b) return{open:true,txt:`open now, until ${fmtT(b%1440||1440)}`};
+  const nx=rs.find(([a])=>a>mins); return nx?{open:false,txt:`opens ${fmtT(nx[0])}`}:{open:false,txt:'closed now'};
+}
+
+/* ---------- map style ---------- */
+const PAL={
+  day:{bg:'#f1efe9',park:'#dde5d4',wood:'#d4dfca',water:'#bdd0ce',bld:'#e4e1d9',bld3:'#e7e4dd',minor:'#ffffff',major:'#ffffff',mot:'#fffcf3',cas:'#d8d3c7',path:'#cbc6b8',rail:'#cdc8bc',lbl:'#6f6a5f',halo:'#f7f6f2',place:'#9a8366',city:'#3d3b37',wlbl:'#6c8d8b',navc:'#2d5bd8',navcase:'#ffffff',acf:'rgba(45,91,216,.10)',acl:'rgba(45,91,216,.35)',cityUp:false},
+  slate:{bg:'#566a62',park:'#5c7167',wood:'#586d62',water:'#1e2526',bld:'#4e605a',bld3:'#50635b',minor:'#9fb4aa',major:'#c4d5cc',mot:'#d6e2db',cas:'#566a62',path:'#8aa096',rail:'#72867d',lbl:'#d9e5de',halo:'#3c4a45',place:'#e7efea',city:'#f3f7f4',wlbl:'#73857f',navc:'#ffd166',navcase:'#1e2526',acf:'rgba(255,209,102,.12)',acl:'rgba(255,209,102,.5)',cityUp:false},
+  night:{bg:'#131416',park:'#161a1b',wood:'#15191a',water:'#262b31',bld:'#1b1d20',bld3:'#1e2124',minor:'#2d3036',major:'#3d4148',mot:'#4b5058',cas:'#131416',path:'#2a2d32',rail:'#2a2d33',lbl:'#80868f',halo:'#0d0e10',place:'#9aa0a8',city:'#dadde2',wlbl:'#525a64',navc:'#6f98ff',navcase:'#0d0e10',acf:'rgba(111,152,255,.12)',acl:'rgba(111,152,255,.5)',cityUp:true}
+};
+const GJ={plan:EMPTY,nav:EMPTY,acc:EMPTY};
+const Z=(...s)=>['interpolate',['exponential',1.5],['zoom'],...s];
+const NAME=['coalesce',['get','name:latin'],['get','name']];
+function buildStyle(t){
+  const p=PAL[t], cls=(...c)=>['in',['get','class'],['literal',c]], navOn=!!nav;
+  const road=(id,f,min,color,w,extra={})=>({id,type:'line',source:'omt','source-layer':'transportation',minzoom:min,filter:f,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':color,'line-width':w,...extra}});
+  return{version:8,
+    glyphs:'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+    sources:{omt:{type:'vector',url:'https://tiles.openfreemap.org/planet'},plan:{type:'geojson',data:GJ.plan},nav:{type:'geojson',data:GJ.nav},acc:{type:'geojson',data:GJ.acc}},
+    layers:[
+      {id:'bg',type:'background',paint:{'background-color':p.bg}},
+      {id:'wood',type:'fill',source:'omt','source-layer':'landcover',filter:cls('wood','forest'),paint:{'fill-color':p.wood}},
+      {id:'grass',type:'fill',source:'omt','source-layer':'landcover',filter:cls('grass','meadow','scrub'),paint:{'fill-color':p.park,'fill-opacity':.7}},
+      {id:'park',type:'fill',source:'omt','source-layer':'park',paint:{'fill-color':p.park}},
+      {id:'water',type:'fill',source:'omt','source-layer':'water',paint:{'fill-color':p.water}},
+      {id:'waterway',type:'line',source:'omt','source-layer':'waterway',paint:{'line-color':p.water,'line-width':Z(10,.5,16,3)}},
+      {id:'bld',type:'fill',source:'omt','source-layer':'building',minzoom:13,maxzoom:15.5,paint:{'fill-color':p.bld}},
+      road('path',cls('path','track'),14,p.path,Z(14,.6,18,2),{'line-dasharray':[2,1.4]}),
+      road('rail',cls('rail'),10,p.rail,Z(10,.6,16,1.6),{'line-dasharray':[3,2]}),
+      road('minor-c',cls('minor','service'),13,p.cas,Z(13,1,16,8,18,20)),
+      road('major-c',cls('primary','secondary','tertiary','trunk'),8,p.cas,Z(8,1,12,2.6,16,13,18,26)),
+      road('mot-c',cls('motorway'),6,p.cas,Z(6,1,12,3.6,16,15,18,30)),
+      road('minor',cls('minor','service'),12,p.minor,Z(12,.4,13,.8,16,6,18,17)),
+      road('major',cls('primary','secondary','tertiary','trunk'),8,p.major,Z(8,.6,12,1.6,16,10,18,22)),
+      road('mot',cls('motorway'),6,p.mot,Z(6,.8,12,2.5,16,12,18,26)),
+      {id:'bld3',type:'fill-extrusion',source:'omt','source-layer':'building',minzoom:15,paint:{'fill-extrusion-color':p.bld3,'fill-extrusion-height':['coalesce',['get','render_height'],6],'fill-extrusion-base':['coalesce',['get','render_min_height'],0],'fill-extrusion-opacity':.88}},
+      {id:'acc-f',type:'fill',source:'acc',paint:{'fill-color':p.acf}},
+      {id:'acc-l',type:'line',source:'acc',paint:{'line-color':p.acl,'line-width':1}},
+      {id:'plan-c',type:'line',source:'plan',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':p.navcase,'line-width':Z(10,3.5,16,10),'line-opacity':navOn?.5:.9}},
+      {id:'plan-l',type:'line',source:'plan',filter:['!=',['get','straight'],1],layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':['get','c'],'line-width':Z(10,2,16,6),'line-opacity':navOn?.45:.95}},
+      {id:'plan-ls',type:'line',source:'plan',filter:['==',['get','straight'],1],layout:{'line-join':'round'},paint:{'line-color':['get','c'],'line-width':Z(10,2,16,5),'line-opacity':navOn?.45:.95,'line-dasharray':[1.5,1.5]}},
+      {id:'nav-c',type:'line',source:'nav',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':p.navcase,'line-width':Z(12,6,18,18)}},
+      {id:'nav-l',type:'line',source:'nav',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':p.navc,'line-width':Z(12,4,18,12)}},
+      {id:'road-lbl',type:'symbol',source:'omt','source-layer':'transportation_name',minzoom:13.5,layout:{'symbol-placement':'line','text-field':NAME,'text-font':['Noto Sans Regular'],'text-size':Z(14,10,18,14),'text-letter-spacing':.02},paint:{'text-color':p.lbl,'text-halo-color':p.halo,'text-halo-width':1.4}},
+      {id:'water-lbl',type:'symbol',source:'omt','source-layer':'water_name',layout:{'text-field':NAME,'text-font':['Noto Sans Italic'],'text-size':12,'symbol-placement':'point'},paint:{'text-color':p.wlbl,'text-halo-color':p.halo,'text-halo-width':1}},
+      {id:'hood-lbl',type:'symbol',source:'omt','source-layer':'place',minzoom:12,filter:cls('suburb','quarter','neighbourhood'),layout:{'text-field':NAME,'text-font':['Noto Sans Bold'],'text-size':Z(12,9.5,16,12.5),'text-transform':'uppercase','text-letter-spacing':.12,'text-max-width':8},paint:{'text-color':p.place,'text-halo-color':p.halo,'text-halo-width':1.5}},
+      {id:'town-lbl',type:'symbol',source:'omt','source-layer':'place',minzoom:9,filter:cls('town','village','hamlet'),layout:{'text-field':NAME,'text-font':['Noto Sans Regular'],'text-size':Z(9,10,14,15),'text-transform':p.cityUp?'uppercase':'none','text-letter-spacing':p.cityUp?.08:0},paint:{'text-color':p.city,'text-halo-color':p.halo,'text-halo-width':1.6}},
+      {id:'city-lbl',type:'symbol',source:'omt','source-layer':'place',maxzoom:14.5,filter:['==',['get','class'],'city'],layout:{'text-field':['coalesce',['get','name:en'],NAME],'text-font':['Noto Sans Bold'],'text-size':Z(6,12,13,22),'text-transform':p.cityUp?'uppercase':'none','text-letter-spacing':p.cityUp?.1:.01},paint:{'text-color':p.city,'text-halo-color':p.halo,'text-halo-width':2}}
+    ]};
+}
+
+/* ---------- state ---------- */
+let theme=(()=>{const s=LS.get('theme',null);if(s&&Date.now()-s.at<4*3600e3)return s.t;const d=new Date(),h=d.getHours()+d.getMinutes()/60;return(h>=19||h<7.75)?'slate':'day'})();
+let me=null, compass=null, followMode=0, nav=null, activePlan=null, tab='near', nearFilter='all', voiceOn=LS.get('voice',false), wantWake=false, wake=null;
+let selId=null, tempMarker=null, cardPlace=null;
+const sim={on:false,timer:null,along:0,route:null};
+document.body.dataset.theme=theme;
+
+/* ---------- map ---------- */
+const last=LS.get('view',null);
+const map=new maplibregl.Map({container:'map',style:buildStyle(theme),center:last?last.c:CITIES[0].center,zoom:last?last.z:CITIES[0].z,attributionControl:false,maxPitch:70,dragRotate:true,touchPitch:true});
+map.addControl(new maplibregl.AttributionControl({compact:true}),'bottom-left');
+map.on('moveend',()=>{const c=map.getCenter();LS.set('view',{c:[c.lng,c.lat],z:map.getZoom()});if(!me)refreshNear()});
+map.on('zoom',()=>document.body.classList.toggle('far',map.getZoom()<12.3));
+map.on('rotate',updateNorth);map.on('pitch',updateNorth);
+function setSrc(id,data){GJ[id]=data;const s=map.getSource(id);if(s)s.setData(data)}
+function userMoved(e){if(!e.originalEvent)return;if(followMode){followMode=0;updateLocBtn()}if(nav)$('#btnRecenter').hidden=false}
+map.on('dragstart',userMoved);map.on('zoomstart',e=>{if(nav)userMoved(e)});
+map.on('click',e=>{if(Date.now()-lpAt<800)return;if(e.originalEvent&&e.originalEvent.target.closest&&e.originalEvent.target.closest('.mk'))return;closeCard();hideResults()});
+document.body.classList.toggle('far',map.getZoom()<12.3);
+
+/* long-press to drop a pin */
+let lp=null,lpPt=null,lpAt=0;
+map.on('touchstart',e=>{const t=e.originalEvent.touches;clearTimeout(lp);if(t.length!==1)return;const ll=e.lngLat;lpPt=e.point;lp=setTimeout(()=>{lpAt=Date.now();dropPin(ll)},550)});
+map.on('touchmove',e=>{if(lpPt&&(Math.abs(e.point.x-lpPt.x)>10||Math.abs(e.point.y-lpPt.y)>10))clearTimeout(lp)});
+map.on('touchend',()=>clearTimeout(lp));map.on('touchcancel',()=>clearTimeout(lp));
+map.on('contextmenu',e=>{lpAt=Date.now();dropPin(e.lngLat)});
+
+/* ---------- markers ---------- */
+const MK={};
+P.forEach(p=>{
+  const el=document.createElement('div');el.className='mk';el.setAttribute('role','button');el.setAttribute('aria-label',p.n);
+  el.innerHTML=`<div class="pin" style="--c:${G[p.g].c}"><span class="pin-in">${icon(p.t)}</span></div>${p.s?'<span class="mkstar">★</span>':''}`;
+  el.addEventListener('click',e=>{e.stopPropagation();openCard(p,true)});
+  MK[p.id]={el,m:new maplibregl.Marker({element:el,anchor:'bottom',offset:[0,-6]}).setLngLat([p.lng,p.lat]).addTo(map)};
+});
+function renderPlanMarkers(){
+  const pl=activePlan&&PLI[activePlan];const order={};
+  if(pl) pl.stops.forEach(([id],i)=>{if(!(id in order))order[id]=i+1});
+  P.forEach(p=>{const k=MK[p.id],inP=p.id in order;k.el.classList.toggle('dim',!!pl&&!inP);k.el.classList.toggle('inplan',inP);
+    k.el.querySelector('.pin-in').innerHTML=inP?order[p.id]:icon(p.t)});
+}
+function select(id){if(selId&&MK[selId])MK[selId].el.classList.remove('sel');selId=id;if(id&&MK[id])MK[id].el.classList.add('sel')}
+
+/* me marker + heading cone */
+const meEl=document.createElement('div');meEl.className='me';meEl.innerHTML=COUPLE;
+const coneEl=document.createElement('div');coneEl.className='cone';
+const meM=new maplibregl.Marker({element:meEl,anchor:'center'});
+const coneM=new maplibregl.Marker({element:coneEl,anchor:'center',rotationAlignment:'map',pitchAlignment:'map'});
+let meShown=false;
+
+/* ---------- theme ---------- */
+const TH_ICON={day:UI.sun,slate:UI.leaf,night:UI.moon},TH_NAME={day:'Day map',slate:'Slate map',night:'Night map'},TH_COL={day:'#fdfcf7',slate:'#33413c',night:'#191b1e'};
+function setTheme(t,manual){theme=t;document.body.dataset.theme=t;$('#btnTheme').innerHTML=TH_ICON[t];
+  document.querySelector('meta[name=theme-color]').content=TH_COL[t];
+  if(manual){LS.set('theme',{t,at:Date.now()});toast(TH_NAME[t])}
+  map.setStyle(buildStyle(t),{diff:true});}
+$('#btnTheme').innerHTML=TH_ICON[theme];document.querySelector('meta[name=theme-color]').content=TH_COL[theme];
+$('#btnTheme').onclick=()=>setTheme({day:'slate',slate:'night',night:'day'}[theme],true);
+
+/* ---------- north / locate buttons ---------- */
+function updateNorth(){const b=map.getBearing(),p=map.getPitch();$('#btnNorth').hidden=Math.abs(b)<1&&p<1;$('#btnNorth svg').style.transform=`rotate(${-b}deg)`}
+$('#btnNorth').onclick=()=>{if(followMode===2)followMode=1;updateLocBtn();map.easeTo({bearing:0,pitch:0,duration:500})};
+function updateLocBtn(){const b=$('#btnLocate');b.classList.toggle('on',followMode===1);b.classList.toggle('head',followMode===2);b.innerHTML=followMode===2?UI.arrow:UI.loc;
+  b.setAttribute('aria-label',followMode===2?'Following your direction':followMode===1?'Following you':'Show my location')}
+updateLocBtn();
+$('#btnLocate').onclick=()=>{
+  requestCompass();
+  if(!me){followMode=1;updateLocBtn();startGPS(true);return}
+  followMode=followMode===1?2:1;updateLocBtn();
+  if(followMode===1&&!nav)map.easeTo({bearing:0,pitch:0,duration:500});
+  else map.easeTo({pitch:nav?55:45,duration:500});
+  camTick(true);
+};
+$('#btnRecenter').onclick=()=>{followMode=2;updateLocBtn();$('#btnRecenter').hidden=true;camTick(true)};
+
+/* ---------- GPS & compass ---------- */
+let watchId=null,firstFix=true;
+function startGPS(loud){
+  if(sim.on)return;
+  if(!navigator.geolocation){toast('This browser has no location access');return}
+  if(watchId!=null)return;
+  if(loud)toast('Finding you…');
+  watchId=navigator.geolocation.watchPosition(onPos,err=>{
+    if(err.code===1){toast('Location is blocked. Allow it for this site in your phone settings.');navigator.geolocation.clearWatch(watchId);watchId=null;followMode=0;updateLocBtn()}
+    else if(loud)toast('Still looking for GPS…');
+  },{enableHighAccuracy:true,maximumAge:1000,timeout:20000});
+}
+function stopGPS(){if(watchId!=null)navigator.geolocation.clearWatch(watchId);watchId=null}
+function onPos(pos){if(sim.on)return;const c=pos.coords;
+  updateMe({lat:c.latitude,lng:c.longitude,acc:c.accuracy||30,gpsHeading:(c.heading!=null&&!isNaN(c.heading))?c.heading:null,speed:c.speed||0})}
+let compassOn=false;
+function requestCompass(){
+  if(compassOn)return;const D=window.DeviceOrientationEvent;if(!D)return;
+  if(typeof D.requestPermission==='function'){D.requestPermission().then(s=>{if(s==='granted')listenCompass()}).catch(()=>{})}
+  else listenCompass();
+}
+function listenCompass(){if(compassOn)return;compassOn=true;
+  if('ondeviceorientationabsolute' in window)addEventListener('deviceorientationabsolute',onOrient,true);else addEventListener('deviceorientation',onOrient,true)}
+let headRAF=0;
+function onOrient(e){let h=null;
+  if(e.webkitCompassHeading!=null&&!isNaN(e.webkitCompassHeading))h=e.webkitCompassHeading;
+  else if(e.alpha!=null&&(e.absolute||e.type==='deviceorientationabsolute'))h=(360-e.alpha)%360;
+  if(h==null)return;
+  const sa=(screen.orientation&&screen.orientation.angle)||window.orientation||0;
+  compass=lerpAng(compass,(h+sa+360)%360,.25);
+  if(!headRAF)headRAF=requestAnimationFrame(()=>{headRAF=0;renderHeading()});
+}
+function effHeading(){if(me&&me.gpsHeading!=null&&me.speed>1.4)return me.gpsHeading;return compass}
+function renderHeading(){if(!meShown)return;const h=effHeading();coneEl.style.display=h==null?'none':'';if(h!=null)coneM.setRotation(h)}
+
+function updateMe(m){
+  const prev=me;me=m;
+  meM.setLngLat([m.lng,m.lat]);coneM.setLngLat([m.lng,m.lat]);
+  if(!meShown){coneM.addTo(map);meM.addTo(map);meShown=true}
+  setSrc('acc',m.acc>12?{type:'FeatureCollection',features:[circle(m,m.acc)]}:EMPTY);
+  renderHeading();
+  if(firstFix){firstFix=false;
+    const near=Math.min(...P.map(p=>hav(m,p)));
+    if(near>60000&&!sim.on)toast(`You’re ${fmtDist(near)} from the trip. To try it now, open Plans and tap “Test drive”.`,5200);
+    if(followMode)map.jumpTo({center:[m.lng,m.lat],zoom:Math.max(map.getZoom(),15.5)});
+  }
+  if(nav)navUpdate();
+  if(followMode)camTick();
+  if(!prev||hav(prev,m)>25||Date.now()-lastNear>8000)refreshNear();
+}
+
+/* camera follow */
+let lastCam=0;
+function camTick(force){
+  if(!me||!followMode)return;
+  if(!force&&Date.now()-lastCam<600)return;lastCam=Date.now();
+  const h=effHeading(),o={center:[me.lng,me.lat],duration:force?600:700,easing:t=>t};
+  if(followMode===2&&h!=null)o.bearing=h;else if(followMode===1&&!nav)o.bearing=0;
+  if(nav){o.pitch=55;o.zoom=nav.mode==='bike'?16.2:17.2;o.padding={top:Math.round(innerHeight*.36),bottom:0,left:0,right:0}}
+  map.easeTo(o);
+}
+setInterval(()=>{if(followMode===2)camTick()},800);
+
+/* wake lock */
+async function setWake(on){wantWake=on;
+  if(on){if(!('wakeLock' in navigator)){toast('This browser can’t keep the screen on. Set Auto-Lock to Never in your phone settings for the ride.',5200)}
+    else{try{wake=await navigator.wakeLock.request('screen')}catch(e){}}}
+  else{try{wake&&wake.release()}catch(e){}wake=null}
+  $('#nbWake').setAttribute('aria-pressed',on)}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&wantWake)setWake(true)});
+
+/* voice */
+function speak(t){if(!voiceOn||!('speechSynthesis' in window))return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='en-GB';u.rate=1;speechSynthesis.speak(u)}catch(e){}}
+$('#nbVoice').setAttribute('aria-pressed',voiceOn);
+$('#nbVoice').onclick=()=>{voiceOn=!voiceOn;LS.set('voice',voiceOn);$('#nbVoice').setAttribute('aria-pressed',voiceOn);if(voiceOn)speak('Voice guidance on');else speechSynthesis&&speechSynthesis.cancel()};
+$('#nbWake').onclick=()=>setWake(!wantWake);
+
+/* ---------- routing (OSRM, FOSSGIS servers) ---------- */
+const ROUTER={foot:'https://routing.openstreetmap.de/routed-foot/route/v1/driving/',bike:'https://routing.openstreetmap.de/routed-bike/route/v1/driving/'};
+async function osrm(pts,mode){
+  const url=ROUTER[mode]+pts.map(p=>p[0].toFixed(6)+','+p[1].toFixed(6)).join(';')+'?overview=full&geometries=geojson&steps=true';
+  const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),15000);
+  try{const r=await fetch(url,{signal:ctl.signal});if(!r.ok)throw new Error('HTTP '+r.status);const j=await r.json();
+    if(j.code!=='Ok'||!j.routes||!j.routes.length)throw new Error(j.code||'no route');
+    const rt=j.routes[0];return{coords:rt.geometry.coordinates,steps:rt.legs.flatMap(l=>l.steps),dist:rt.distance,dur:rt.duration,straight:false}}
+  finally{clearTimeout(to)}
+}
+function straightRoute(a,b){const d=havLL(a,b);return{coords:[a,b],steps:[{maneuver:{type:'depart',location:a,bearing_after:bearing(a,b)},name:''},{maneuver:{type:'arrive',location:b},name:''}],dist:d,dur:d/1.3,straight:true}}
+function prep(r){
+  const c=r.coords,cum=[0];for(let i=1;i<c.length;i++)cum.push(cum[i-1]+havLL(c[i-1],c[i]));
+  const mi=[];let from=0;
+  r.steps.forEach(s=>{const L=s.maneuver.location;let best=1e18,bi=from;for(let i=from;i<c.length;i++){const d=(c[i][0]-L[0])**2+(c[i][1]-L[1])**2;if(d<best){best=d;bi=i}}mi.push(bi);from=bi});
+  return{...r,cum,mi,total:cum[cum.length-1]||0};
+}
+function snap(R,pt){
+  const c=R.coords;if(c.length<2)return{dist:hav(pt,{lng:c[0][0],lat:c[0][1]}),along:0};
+  const kx=Math.cos(pt.lat*R2)*111320,ky=110540;let best=1e18,bi=0,bt=0;
+  for(let i=0;i<c.length-1;i++){const ax=(c[i][0]-pt.lng)*kx,ay=(c[i][1]-pt.lat)*ky,bx=(c[i+1][0]-pt.lng)*kx,by=(c[i+1][1]-pt.lat)*ky,dx=bx-ax,dy=by-ay,L=dx*dx+dy*dy;
+    let t=L?-(ax*dx+ay*dy)/L:0;t=Math.max(0,Math.min(1,t));const px=ax+t*dx,py=ay+t*dy,d=px*px+py*py;if(d<best){best=d;bi=i;bt=t}}
+  return{dist:Math.sqrt(best),along:R.cum[bi]+bt*(R.cum[bi+1]-R.cum[bi])};
+}
+function pointAt(R,along){const c=R.coords;if(c.length<2)return{lng:c[0][0],lat:c[0][1],b:0};
+  let i=R.cum.findIndex(v=>v>=along);if(i<=0)i=1;if(i===-1||along>=R.total)i=c.length-1;
+  const seg=R.cum[i]-R.cum[i-1]||1,t=Math.max(0,Math.min(1,(along-R.cum[i-1])/seg));
+  return{lng:c[i-1][0]+(c[i][0]-c[i-1][0])*t,lat:c[i-1][1]+(c[i][1]-c[i-1][1])*t,b:bearing(c[i-1],c[i])}}
+
+/* turn instructions */
+const ANG={straight:0,'slight right':40,right:90,'sharp right':135,uturn:180,'sharp left':-135,left:-90,'slight left':-40};
+function instr(s,tgt){
+  const m=s.maneuver,t=m.type,mod=m.modifier||'',on=s.name?` onto ${s.name}`:'';
+  if(t==='arrive')return`Arrive at ${tgt}`;
+  if(t==='depart')return`Head ${compassWord(m.bearing_after||0)}${s.name?` on ${s.name}`:''}`;
+  if(t==='roundabout'||t==='rotary'||t==='roundabout turn')return`At the roundabout, take exit ${m.exit||1}${on}`;
+  if(t==='fork')return`Keep ${mod.includes('left')?'left':'right'}${on}`;
+  if(t==='end of road')return`At the end of the road, turn ${mod.includes('left')?'left':'right'}${on}`;
+  if(t==='new name'||t==='continue'||mod==='straight')return s.name?`Continue onto ${s.name}`:'Continue straight';
+  const w={left:'Turn left',right:'Turn right','slight left':'Bear left','slight right':'Bear right','sharp left':'Turn sharp left','sharp right':'Turn sharp right',uturn:'Make a U-turn'};
+  return(w[mod]||'Continue')+on;
+}
+function turnSVG(s){const t=s.maneuver.type;
+  if(t==='arrive')return'<path d="M5 2h2v20H5zM8 3h11l-3 4.5 3 4.5H8z"/>';
+  if(t==='roundabout'||t==='rotary')return'<path d="M12 5a7 7 0 1 1-6.9 8.2h2.1A5 5 0 1 0 12 7zM11 7V1l4 3z"/><path d="M11 13h2v9h-2z"/>';
+  if(t==='depart')return'<path d="M12 2 4.5 21 12 17l7.5 4z"/>';
+  if(s.maneuver.modifier==='uturn')return'<path d="M8 22V9a5 5 0 0 1 10 0v4h3l-4 5-4-5h3V9a3 3 0 0 0-6 0v13z"/>';
+  return'<path d="M12 2 5 10h4.6v12h4.8V10H19z"/>';}
+function turnAngle(s){const t=s.maneuver.type;if(t==='arrive'||t==='roundabout'||t==='rotary'||t==='depart'||s.maneuver.modifier==='uturn')return 0;return ANG[s.maneuver.modifier]||0}
+
+/* ---------- navigation ---------- */
+async function startNav(stops,idx,mode,planId){
+  if(!me){requestCompass();followMode=2;startGPS(true);toast('Turn on your location to start');return}
+  const tgt=stops[idx],far=hav(me,tgt);
+  if(far>60000){toast(`That’s ${fmtDist(far)} away. Use “Test drive” in Plans, or open it in Google Maps.`,5200);return}
+  closeCard();hideResults();
+  nav={stops,idx,mode,planId,route:null,lastRe:0,spoken:{},busy:false};
+  document.body.classList.add('navving');
+  $('#top').hidden=true;$('#rail').hidden=true;$('#sheet').classList.add('gone');
+  $('#navTop').hidden=false;$('#navBot').hidden=false;$('#nbSkip').hidden=stops.length-idx<2;
+  requestAnimationFrame(()=>document.documentElement.style.setProperty('--sheet-h',$('#navBot').offsetHeight+'px'));
+  ['plan-l','plan-ls'].forEach(l=>map.getLayer(l)&&map.setPaintProperty(l,'line-opacity',.45));if(map.getLayer('plan-c'))map.setPaintProperty('plan-c','line-opacity',.5);
+  followMode=2;updateLocBtn();
+  if(!wantWake)setWake(true);
+  await navRoute();
+  camTick(true);
+}
+async function navRoute(){
+  if(!nav||nav.busy)return;nav.busy=true;nav.lastRe=Date.now();
+  const tgt=nav.stops[nav.idx],a=[me.lng,me.lat],b=[tgt.lng,tgt.lat];
+  $('#ntText').textContent='Finding the way…';
+  let r;try{r=await osrm([a,b],nav.mode)}catch(e){r=straightRoute(a,b);toast('No route service right now, showing a straight line')}
+  if(!nav){return}
+  nav.route=prep(r);nav.spoken={};nav.busy=false;sim.route=null;
+  setSrc('nav',{type:'Feature',geometry:{type:'LineString',coordinates:r.coords}});
+  $('#nbG').href=gmapsURL([tgt],nav.mode);
+  navUpdate();
+}
+function navUpdate(){
+  if(!nav||!nav.route||!me)return;
+  const R=nav.route,tgt=nav.stops[nav.idx];
+  if(hav(me,tgt)<28)return arrive();
+  const s=snap(R,me);
+  if(s.dist>45&&Date.now()-nav.lastRe>12000&&!nav.busy){navRoute();return}
+  let k=R.steps.findIndex((st,j)=>j>0&&R.cum[R.mi[j]]>s.along+4);if(k<0)k=R.steps.length-1;
+  const st=R.steps[k],toMan=Math.max(0,R.cum[R.mi[k]]-s.along),remain=Math.max(0,R.total-s.along);
+  const txt=instr(st,tgt.n),ti=$('#turnIcon');
+  ti.innerHTML=turnSVG(st);ti.style.transform=`rotate(${turnAngle(st)}deg)`;
+  $('#ntDist').textContent=fmtDist(toMan);$('#ntText').textContent=txt;
+  const mins=minsFor(remain,nav.mode);
+  $('#nbMin').textContent=fmtMin(mins);$('#nbDist').textContent=fmtDist(remain);$('#nbClock').textContent='arrive '+clock(new Date(Date.now()+mins*60000));
+  const pl=nav.planId?PLI[nav.planId]:null;
+  $('#nbTo').innerHTML=`to <b>${esc(tgt.n)}</b>${pl?` · stop ${nav.idx+1} of ${pl.stops.length}`:''}${R.straight?' · straight line':''}`;
+  if(!nav.spoken[k+'f']&&toMan<160&&toMan>60){nav.spoken[k+'f']=1;speak(`In ${Math.round(toMan/10)*10} metres, ${txt.charAt(0).toLowerCase()+txt.slice(1)}`)}
+  if(!nav.spoken[k+'n']&&toMan<=35){nav.spoken[k+'n']=1;speak(txt)}
+}
+function arrive(){
+  const tgt=nav.stops[nav.idx];toast(`You’re at ${tgt.n}`);speak(`You have arrived at ${tgt.n}`);
+  let n=nav.idx+1;while(n<nav.stops.length&&nav.stops[n].id===tgt.id&&nav.stops.length-n>1)n++;
+  if(n<nav.stops.length){nav.idx=n;$('#nbSkip').hidden=nav.stops.length-n<2;navRoute()}
+  else{const done=nav;endNav();toast(done.planId?'That was the last stop. Nice day!':`You’re at ${tgt.n}`)}
+}
+function endNav(){
+  nav=null;setSrc('nav',EMPTY);document.body.classList.remove('navving');
+  $('#top').hidden=false;$('#rail').hidden=false;$('#sheet').classList.remove('gone');
+  $('#navTop').hidden=true;$('#navBot').hidden=true;$('#btnRecenter').hidden=true;
+  ['plan-l','plan-ls'].forEach(l=>map.getLayer(l)&&map.setPaintProperty(l,'line-opacity',.95));if(map.getLayer('plan-c'))map.setPaintProperty('plan-c','line-opacity',.9);
+  setSheet(sheetH,false);setWake(false);
+  if(followMode)followMode=1;updateLocBtn();
+  map.easeTo({pitch:0,bearing:0,padding:{top:0,bottom:0,left:0,right:0},duration:600});
+  if(sim.on)simStop();
+}
+$('#nbEnd').onclick=endNav;
+$('#nbSkip').onclick=()=>{if(!nav)return;if(nav.idx<nav.stops.length-1){nav.idx++;$('#nbSkip').hidden=nav.stops.length-nav.idx<2;toast(`Next: ${nav.stops[nav.idx].n}`);navRoute()}};
+
+/* test drive (simulated location) */
+function simStart(at){
+  stopGPS();sim.on=true;sim.along=0;sim.route=null;$('#simBadge').hidden=false;
+  updateMe({lat:at.lat,lng:at.lng,acc:6,gpsHeading:null,speed:0});
+  clearInterval(sim.timer);sim.timer=setInterval(simTick,1000);
+}
+function simTick(){
+  if(!nav||!nav.route||nav.busy)return;const R=nav.route;
+  if(sim.route!==R){sim.route=R;sim.along=snap(R,me).along}
+  sim.along+=nav.mode==='bike'?40:14;
+  const p=pointAt(R,Math.min(sim.along,R.total));
+  updateMe({lat:p.lat,lng:p.lng,acc:6,gpsHeading:p.b,speed:3});
+}
+function simStop(){clearInterval(sim.timer);sim.on=false;$('#simBadge').hidden=true;me=null;meShown=false;meM.remove();coneM.remove();setSrc('acc',EMPTY);firstFix=true;if(nav)endNav();startGPS(false);renderSheet()}
+$('#simBadge').onclick=simStop;
+
+/* ---------- Google Maps hand-off ---------- */
+function gmapsURL(stops,mode){
+  const enc=p=>p.temp?`${p.lat},${p.lng}`:encodeURIComponent(p.q);
+  const dest=stops[stops.length-1];let u=`https://www.google.com/maps/dir/?api=1&destination=${enc(dest)}&travelmode=${mode==='bike'?'bicycling':'walking'}`;
+  const wp=stops.slice(0,-1).slice(0,3);if(wp.length)u+='&waypoints='+wp.map(enc).join('%7C');return u;
+}
+
+/* ---------- note card ---------- */
+function planInfo(p){const out=[];PLANS.forEach(pl=>{const i=pl.stops.findIndex(([id])=>id===p.id);if(i>=0)out.push(`Stop ${i+1} on ${pl.title}${pl.stops[i][1]?`, ${pl.stops[i][1]}`:''}`)});return out}
+function openCard(p,fromMap){
+  cardPlace=p;select(p.temp?null:p.id);
+  const g=p.temp?null:G[p.g],os=p.temp?null:openState(p),d=me?hav(me,p):null;
+  const pi=p.temp?[]:planInfo(p);
+  $('#card').innerHTML=`
+    <button class="x" aria-label="Close">×</button>
+    ${g?`<div class="c-grp" style="--c:${g.c}"><i></i>${esc(g.label)}</div>`:`<div class="c-grp">${esc(p.sub||'Dropped pin')}</div>`}
+    <h3 class="c-title">${esc(p.n)}${p.s?' <span class="s" title="From your notes">★</span>':''}</h3>
+    ${p.ht||(os&&p.hours!=='A')?`<div>${p.ht?`<span class="hrs">${esc(p.ht)}</span>`:''}${os&&p.hours!=='A'?`<span class="now ${os.open?'o':'c'}">${esc(os.txt)}</span>`:''}</div>`:''}
+    ${d!=null?`<div class="c-dist">${fmtDist(d)} away${d<15000?` · ${fmtMin(minsFor(d,'foot'))} on foot · ${fmtMin(minsFor(d,'bike'))} by bike`:''}</div>`:''}
+    ${p.b?`<div class="c-booked">${esc(p.b)}</div>`:''}
+    ${p.note?`<p class="c-note">${esc(p.note)}</p>`:''}
+    ${p.w?`<p class="c-warn">${esc(p.w)}</p>`:''}
+    ${pi.map(t=>`<div class="c-plan">${esc(t)}</div>`).join('')}
+    ${p.a?`<div class="c-approx">Pin is approximate. Google Maps will find the exact door.</div>`:''}
+    <div class="c-actions">
+      <button class="hb fill" data-go="foot">${UI.walk}Walk here</button>
+      <button class="hb" data-go="bike">Bike here</button>
+      <a class="hb" href="${gmapsURL([p],'foot')}" target="_blank" rel="noopener">${UI.ext}Google Maps</a>
+      ${p.u?`<a class="hb" href="${esc(p.u)}" target="_blank" rel="noopener">Info</a>`:''}
+    </div>`;
+  $('#card').classList.add('on');$('#card').scrollTop=0;
+  $('#card .x').onclick=closeCard;
+  $('#card').querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>startNav([p],0,b.dataset.go,null));
+  if(followMode){followMode=0;updateLocBtn()}
+  const h=$('#card').offsetHeight;
+  map.easeTo({center:[p.lng,p.lat],offset:[0,-Math.min(h/2,innerHeight*.3)],zoom:Math.max(map.getZoom(),fromMap?map.getZoom():15.5),duration:500});
+}
+function closeCard(){$('#card').classList.remove('on');select(null);cardPlace=null;if(tempMarker){tempMarker.remove();tempMarker=null}}
+function dropPin(ll,name,sub){
+  if(nav)return;clearTimeout(lp);
+  if(tempMarker)tempMarker.remove();
+  const el=document.createElement('div');el.className='mk sel';el.innerHTML=`<div class="pin temp"><span class="pin-in">${icon('pin')}</span></div>`;
+  tempMarker=new maplibregl.Marker({element:el,anchor:'bottom',offset:[0,-6]}).setLngLat(ll).addTo(map);
+  const p={temp:true,n:name||'Dropped pin',sub:sub||`${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}`,lat:ll.lat,lng:ll.lng};
+  const keep=tempMarker;openCard(p,true);tempMarker=keep;
+}
+
+/* ---------- bottom sheet ---------- */
+const sheet=$('#sheet');let snaps=[],sheetH=0;
+function computeSnaps(){const H=innerHeight;snaps=[160,Math.round(H*.48),Math.round(H*.86)];sheet.style.height=snaps[2]+'px'}
+function setSheet(h,anim=true){
+  if(typeof h!=='number'||!snaps.length)h=snaps[0];
+  sheetH=h;sheet.style.transition=anim?'transform .28s cubic-bezier(.2,.8,.2,1)':'none';
+  sheet.style.transform=`translateY(${snaps[2]-h}px)`;
+  if(!nav)document.documentElement.style.setProperty('--sheet-h',h+'px');
+}
+computeSnaps();setSheet(snaps[0],false);
+addEventListener('resize',()=>{const i=snaps.indexOf(sheetH);computeSnaps();setSheet(snaps[Math.max(0,i)],false)});
+(()=>{const g=$('#grab');let y0=null,h0=0,moved=false,t0=0;
+  g.addEventListener('pointerdown',e=>{y0=e.clientY;h0=sheetH;moved=false;t0=Date.now()});
+  g.addEventListener('pointermove',e=>{if(y0==null)return;const dy=y0-e.clientY;if(!moved&&Math.abs(dy)>6){moved=true;try{g.setPointerCapture(e.pointerId)}catch(_){}}if(moved)setSheet(Math.max(snaps[0]-40,Math.min(snaps[2],h0+dy)),false)});
+  const up=e=>{if(y0==null)return;const dy=y0-e.clientY,v=dy/Math.max(1,Date.now()-t0);y0=null;
+    if(!moved){if(!e.target.closest('.tab')){const i=snaps.indexOf(h0);setSheet(snaps[i===0?1:0])}return}
+    let tgt;if(Math.abs(v)>.5){const i=snaps.findIndex(s=>s>=h0-1);tgt=snaps[Math.max(0,Math.min(2,(i<0?0:i)+(v>0?1:-1)))]}
+    else tgt=snaps.reduce((a,b)=>Math.abs(b-sheetH)<Math.abs(a-sheetH)?b:a);
+    setSheet(tgt)};
+  g.addEventListener('pointerup',up);g.addEventListener('pointercancel',up);
+})();
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',x===b));if(sheetH===snaps[0])setSheet(snaps[1]);renderSheet()});
+
+/* near list */
+let lastNear=0;
+const FILTERS=[['all','Everything'],['food','Food & drink'],['see','Sights'],['open','Open now'],['star','★ From my notes']];
+const isFood=p=>['food','coffee','bar'].includes(p.t);
+function refreshNear(){lastNear=Date.now();if(tab==='near')renderSheet()}
+function nearHTML(){
+  let ref=me,label='Closest to you';
+  if(!me||Math.min(...P.map(p=>hav(me,p)))>50000){const c=map.getCenter();ref={lat:c.lat,lng:c.lng};label=me?'You’re far away, so these are near the map centre':'Near the map centre. Tap ◎ to use your location'}
+  let list=P.map(p=>({p,d:hav(ref,p),o:openState(p)}));
+  if(nearFilter==='food')list=list.filter(x=>isFood(x.p));
+  if(nearFilter==='see')list=list.filter(x=>!isFood(x.p));
+  if(nearFilter==='open')list=list.filter(x=>x.o&&x.o.open);
+  if(nearFilter==='star')list=list.filter(x=>x.p.s);
+  list.sort((a,b)=>a.d-b.d);list=list.slice(0,30);
+  return`<div class="filters">${FILTERS.map(([k,l])=>`<button class="flt" data-f="${k}" aria-pressed="${nearFilter===k}">${l}</button>`).join('')}</div>
+    <p class="ref">${label}</p>
+    ${list.length?list.map(({p,d,o})=>`<button class="row" data-id="${p.id}"><span class="dot" style="--c:${G[p.g].c}">${icon(p.t)}</span>
+      <span class="mid"><span class="nm">${esc(p.n)}${p.s?' <span style="color:var(--star)">★</span>':''}</span><br><span class="sub">${esc(G[p.g].city)}${o&&p.hours!=='A'?` · <span class="${o.open?'st-open':'st-closed'}">${esc(o.txt)}</span>`:p.ht?` · ${esc(p.ht)}`:''}</span></span>
+      <span class="d">${fmtDist(d)}<small>${fmtMin(minsFor(d,'foot'))} walk</small></span></button>`).join(''):'<p class="ref">Nothing matches here. Try another filter.</p>'}`;
+}
+/* plans */
+const planRoutes={};
+function plansHTML(){
+  if(activePlan){const pl=PLI[activePlan],r=planRoutes[activePlan];
+    return`<button class="back" id="plBack">‹ All plans</button>
+    <div class="plan" style="--c:${G[pl.g].c};border:0;padding-bottom:6px"><h3><i></i>${esc(pl.title)}</h3><p>${esc(pl.sub)}${r?` Route: ${fmtDist(r.dist)}, about ${fmtMin(minsFor(r.dist,pl.mode))} of ${pl.mode==='bike'?'riding':'walking'}.`:''}</p>
+    <div class="btns"><button class="btn fill" data-start="${pl.id}">Start from stop 1</button><button class="btn" data-sim="${pl.id}">Test drive</button></div></div>
+    ${pl.stops.map(([id,t],i)=>{const p=PI[id],d=me?hav(me,p):null,hasT=pl.stops.some(x=>x[1]);return`<button class="row" data-id="${id}">${hasT?`<span class="time">${t||''}</span>`:''}<span class="dot" style="--c:${G[pl.g].c}">${i+1}</span>
+      <span class="mid"><span class="nm">${esc(p.n)}</span>${p.ht?`<br><span class="sub">${esc(p.ht)}</span>`:''}</span>
+      <span class="d" data-from="${i}" style="color:var(--ink)">${d!=null&&d<60000?fmtDist(d)+'<small>start here ›</small>':'<small>start here ›</small>'}</span></button>`}).join('')}`;}
+  return PLANS.map(pl=>`<div class="plan" style="--c:${G[pl.g].c}"><h3><i></i>${esc(pl.title)}</h3><p>${esc(pl.sub)} ${pl.stops.length} stops, ${pl.mode==='bike'?'by bike':'on foot'}.</p>
+    <div class="btns"><button class="btn fill" data-show="${pl.id}">Show on map</button><button class="btn" data-start="${pl.id}">Start</button><button class="btn" data-sim="${pl.id}">Test drive</button></div></div>`).join('')+
+    `<p class="ref" style="margin-top:12px">Test drive pretends you’re standing at stop 1 and plays the navigation along the route, so you can try everything from home.</p>`;
+}
+async function showPlan(id,fit=true){
+  activePlan=id;lastTab=null;LS.set('plan',id);renderPlanMarkers();
+  const pl=PLI[id],pts=pl.stops.map(([s])=>[PI[s].lng,PI[s].lat]);
+  if(fit){const b=new maplibregl.LngLatBounds();pts.forEach(p=>b.extend(p));map.fitBounds(b,{padding:{top:130,bottom:Math.min(sheetH,innerHeight*.5)+30,left:40,right:70},maxZoom:16,duration:700})}
+  let r=planRoutes[id]||LS.get('rt3:'+id,null);
+  if(!r){setSrc('plan',{type:'Feature',properties:{c:G[pl.g].c,straight:1},geometry:{type:'LineString',coordinates:pts}});
+    try{const o=await osrm(pts,pl.mode);r={coords:o.coords,dist:o.dist};LS.set('rt3:'+id,r)}catch(e){r={coords:pts,dist:pts.slice(1).reduce((s,p,i)=>s+havLL(pts[i],p),0),straight:1}}}
+  planRoutes[id]=r;
+  if(activePlan===id)setSrc('plan',{type:'Feature',properties:{c:G[pl.g].c,straight:r.straight?1:0},geometry:{type:'LineString',coordinates:r.coords}});
+  if(tab==='plans')renderSheet();
+}
+function clearPlan(){activePlan=null;lastTab=null;LS.set('plan',null);renderPlanMarkers();setSrc('plan',EMPTY);renderSheet()}
+function planStops(id){return PLI[id].stops.map(([s])=>PI[s])}
+async function startPlan(id,from=0,simulate=false){
+  if(activePlan!==id)showPlan(id,false);
+  const stops=planStops(id);
+  if(simulate){if(nav)endNav();simStart(stops[from]);startNav(stops,Math.min(from+1,stops.length-1),PLI[id].mode,id);return}
+  if(!me){requestCompass();followMode=2;updateLocBtn();startGPS(true);toast('Turn on your location, then tap Start again');return}
+  startNav(stops,from,PLI[id].mode,id);
+}
+/* notes */
+const NOTES=`<div class="notes">
+<h4>Trains between cities</h4><p>Use the <a href="https://www.belgiantrain.be" target="_blank" rel="noopener">SNCB app</a> and buy the ticket before you board. Weekend trips are automatically 30% cheaper.</p><p>Brussels › Gent about 30 min, › Antwerpen about 45 min, › Bruges about 1 h. Trains run several times an hour.</p>
+<h4>Inside the cities</h4><p>Brussels (metro, tram, bus): tap your contactless card or phone on the validator every time you board. Free transfers within 60 min. App: <a href="https://www.stib-mivb.be" target="_blank" rel="noopener">STIB-MIVB</a>.</p><p>Gent, Antwerpen, Bruges: <a href="https://www.delijn.be/en/" target="_blank" rel="noopener">De Lijn</a>. Tap your card on the white terminal, €3 a ride, free transfers within 60 min.</p><p class="warn">One card for both of you works on De Lijn (up to 5 people), but not on STIB, so use one card each in Brussels.</p>
+<h4>Taxis</h4><p>Uber works in all four cities and is the easiest. Bolt is a good backup. In Brussels you can also book Taxis Verts. Bruges has fewer app cars, so leave a bit of time on the way back to the station.</p>
+<h4>Crossing into the Netherlands (Sluis)</h4><p>Schengen and the euro, so no border post. On the bike route it’s just a sign on the road. Dutch military police can still do random spot checks near the border, so both of you carry your ID card or passport.</p>
+<h4>Book ahead</h4><p><a href="https://fine-arts-museum.be" target="_blank" rel="noopener">Magritte Museum</a> (Friday), <a href="https://www.museabrugge.be" target="_blank" rel="noopener">Bruges Belfry</a> (timed slots), <a href="https://visit.gent.be" target="_blank" rel="noopener">Gravensteen</a>, <a href="https://www.ruien.be/" target="_blank" rel="noopener">Ruien</a>, In the Mood dinner in Bruges.</p>
+<h4>Money and the rest</h4><p>Cards work almost everywhere, but bring cash for the Marolles flea market and Kasteel Minnewater (both cash only). Emergency number: 112. Service is included, so rounding up is enough.</p>
+<h4>Which town on which day?</h4>
+<table><tr><th></th><th>Saturday</th><th>Sunday</th></tr>
+<tr><td>Gent</td><td>everything open</td><td>De Krook &amp; Astro Boy closed, cathedral from 13:00</td></tr>
+<tr><td>Antwerpen</td><td>everything open except Invincible</td><td>Shuk, Kamino, Dansing Chocola closed, cathedral from 13:00, but Boekenberg open</td></tr>
+<tr><td>Bruges</td><td>everything open except Tante Marie</td><td>Adornes closed</td></tr></table>
+<p>Antwerpen copes best with a Sunday, so if you’re unsure: Gent or Bruges on Saturday, Antwerpen on Sunday.</p>
+<h4>Good to know</h4><p>Most museums close on Mondays, so all the indoor art is on Friday.</p><p class="warn">At night stick to the Grand-Place, Mont des Arts and Sablon, or take a taxi. The route skips Gare du Nord, Anderlecht and Cureghem, and avoids Midi and Porte de Hal after dark.</p>
+<h4>Using this map</h4><p>Tap a pin for your notes. Long-press anywhere on the map to drop a pin and route there. ◎ follows you, tap it again to turn the map with you. During navigation, Voice reads the turns and Screen on stops the phone locking (handy on the bike mount).</p>
+<p class="fine">Map data © OpenStreetMap contributors · tiles by OpenFreeMap / OpenMapTiles · routes by FOSSGIS OSRM · address search by Photon (komoot). Opening hours are from your notes; “open now” uses today’s day and time.</p></div>`;
+let lastTab=null;
+function renderSheet(){
+  const b=$('#sbody'),st=lastTab===tab?b.scrollTop:0;lastTab=tab;
+  b.innerHTML=tab==='near'?nearHTML():tab==='plans'?plansHTML():NOTES;
+  b.querySelectorAll('.flt').forEach(x=>x.onclick=()=>{nearFilter=x.dataset.f;renderSheet()});
+  b.querySelectorAll('.row').forEach(x=>x.onclick=e=>{const from=e.target.closest('[data-from]');if(from&&activePlan){startPlan(activePlan,+from.dataset.from);return}openCard(PI[x.dataset.id])});
+  b.querySelectorAll('[data-show]').forEach(x=>x.onclick=()=>showPlan(x.dataset.show));
+  b.querySelectorAll('[data-start]').forEach(x=>x.onclick=()=>startPlan(x.dataset.start,0));
+  b.querySelectorAll('[data-sim]').forEach(x=>x.onclick=()=>startPlan(x.dataset.sim,0,true));
+  const bk=$('#plBack');if(bk)bk.onclick=clearPlan;
+  b.scrollTop=st;
+}
+
+/* ---------- city chips ---------- */
+$('#cityChips').innerHTML=CITIES.map(c=>`<button class="chip" data-c="${c.k}" style="--c:${c.c}"><i></i>${c.label}</button>`).join('');
+document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{const c=CITIES.find(x=>x.k===b.dataset.c);if(followMode){followMode=0;updateLocBtn()}closeCard();map.flyTo({center:c.center,zoom:c.z,bearing:0,pitch:0,duration:1400})});
+
+/* ---------- search ---------- */
+const norm=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+let sTimer=null,sSeq=0;
+function hideResults(){$('#results').hidden=true}
+$('#q').addEventListener('input',()=>{const v=$('#q').value.trim();$('#qx').hidden=!v;clearTimeout(sTimer);if(!v){hideResults();return}renderResults(v,null);if(v.length>=3)sTimer=setTimeout(()=>photon(v),380)});
+$('#q').addEventListener('keydown',e=>{if(e.key==='Enter'){const f=$('#results .row');if(f)f.click();$('#q').blur()}});
+$('#qx').onclick=()=>{$('#q').value='';$('#qx').hidden=true;hideResults()};
+let lastWeb=[];
+function renderResults(v,web){
+  if(web)lastWeb=web;const n=norm(v);
+  const mine=P.filter(p=>norm(p.n+' '+p.note+' '+G[p.g].city).includes(n)).slice(0,8);
+  const r=$('#results');r.hidden=false;
+  r.innerHTML=`<h5>From your notes</h5>${mine.length?mine.map(p=>`<button class="row" data-id="${p.id}"><span class="dot" style="--c:${G[p.g].c}">${icon(p.t)}</span><span class="mid"><span class="nm">${esc(p.n)}</span><br><span class="sub">${esc(G[p.g].label)}</span></span></button>`).join(''):'<div class="empty">Nothing in your notes</div>'}
+    <h5>Addresses &amp; places</h5>${(web||lastWeb).length?(web||lastWeb).map((w,i)=>`<button class="row" data-w="${i}"><span class="dot" style="--c:#8a8a8a">${icon('pin')}</span><span class="mid"><span class="nm">${esc(w.n)}</span><br><span class="sub">${esc(w.sub)}</span></span></button>`).join(''):`<div class="empty">${v.length<3?'Keep typing…':'Searching…'}</div>`}`;
+  r.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{hideResults();$('#q').blur();openCard(PI[b.dataset.id])});
+  r.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{const w=lastWeb[+b.dataset.w];hideResults();$('#q').blur();dropPin({lat:w.lat,lng:w.lng},w.n,w.sub)});
+}
+async function photon(v){
+  const seq=++sSeq,c=me||(()=>{const m=map.getCenter();return{lat:m.lat,lng:m.lng}})();
+  try{const r=await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(v)}&lat=${c.lat.toFixed(4)}&lon=${c.lng.toFixed(4)}&limit=6&lang=en`);const j=await r.json();
+    if(seq!==sSeq)return;
+    const web=(j.features||[]).map(f=>{const p=f.properties||{};return{n:p.name||[p.street,p.housenumber].filter(Boolean).join(' ')||'Place',sub:[p.street&&p.name?[p.street,p.housenumber].filter(Boolean).join(' '):'',p.city||p.town||p.village||'',p.country||''].filter(Boolean).join(', '),lat:f.geometry.coordinates[1],lng:f.geometry.coordinates[0]}});
+    if($('#q').value.trim()===v)renderResults(v,web);
+  }catch(e){if(seq===sSeq&&$('#q').value.trim()===v)renderResults(v,[])}
+}
+
+addEventListener('keydown',e=>{if(e.key==='Escape'){closeCard();hideResults()}});
+/* ---------- toast ---------- */
+let tT=null;function toast(t,ms=2600){const el=$('#toast');el.textContent=t;el.classList.add('on');clearTimeout(tT);tT=setTimeout(()=>el.classList.remove('on'),ms)}
+
+/* ---------- home-screen icon ---------- */
+(()=>{try{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas');cv.width=cv.height=180;const x=cv.getContext('2d');x.fillStyle='#fdfcf7';x.fillRect(0,0,180,180);x.drawImage(img,8,8,164,164);
+  const l=document.createElement('link');l.rel='apple-touch-icon';l.href=cv.toDataURL('image/png');document.head.appendChild(l);
+  const f=document.createElement('link');f.rel='icon';f.href=l.href;document.head.appendChild(f)};
+  img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(COUPLE.replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" '))}catch(e){}})();
+
+/* ---------- start ---------- */
+renderSheet();
+const savedPlan=LS.get('plan',null);if(savedPlan&&PLI[savedPlan]){activePlan=savedPlan;showPlan(savedPlan,false)}
+if(navigator.permissions&&navigator.permissions.query){navigator.permissions.query({name:'geolocation'}).then(s=>{if(s.state==='granted')startGPS(false)}).catch(()=>{})}
+setInterval(()=>{if(tab==='near'&&!nav)renderSheet()},60000);
+})();
+</script>
+</body>
+</html>
