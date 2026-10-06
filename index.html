@@ -863,7 +863,7 @@ async function navRoute(){
   if(r.unsafe){const n=r.unsafe.map(z=>z.short).join(' and ');toast(`Careful: the only route found passes ${n}. A taxi is the safer choice here.`,6500);speak(`Careful. This route passes ${n}.`)}
   nav.route=prep(r);nav.spoken={};nav.busy=false;sim.route=null;
   setSrc('nav',{type:'Feature',geometry:{type:'LineString',coordinates:r.coords}});
-  $('#nbG').href=gmapsURL([tgt],nav.mode);
+  setGm($('#nbG'),tgt,nav.mode);
   navUpdate();
 }
 function navUpdate(){
@@ -923,8 +923,24 @@ function simStop(){clearInterval(sim.timer);sim.on=false;$('#simBadge').hidden=t
 $('#simBadge').onclick=simStop;
 
 /* ---------- Google Maps hand-off ---------- */
+/* open the Google Maps APP directly (iPhone needs the comgooglemaps:// scheme; plain links land on the web page / App Store) */
+const IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const GMODE={foot:'walking',bike:'bicycling',transit:'transit',place:'place'};
+function gmAttrs(p,mode){return`data-gm="1" data-q="${esc(p.temp?`${p.lat},${p.lng}`:p.q)}" data-lat="${p.lat}" data-lng="${p.lng}" data-mode="${GMODE[mode]||mode}"`}
+function setGm(el,p,mode){el.href=gmapsURL([p],mode==='place'?'foot':mode);Object.assign(el.dataset,{gm:'1',q:p.temp?`${p.lat},${p.lng}`:p.q,lat:p.lat,lng:p.lng,mode:GMODE[mode]||mode})}
+function openMapsApp(d){
+  const q=encodeURIComponent(d.q),ll=`${d.lat},${d.lng}`;
+  const gm=d.mode==='place'?`comgooglemaps://?q=${q}&center=${ll}&zoom=17`:`comgooglemaps://?daddr=${q}&directionsmode=${d.mode}`;
+  const am=d.mode==='place'?`maps://?q=${q}&ll=${ll}`:`maps://?daddr=${ll}&dirflg=${d.mode==='transit'?'r':'w'}`;
+  let left=false;const gone=()=>{left=true};
+  document.addEventListener('visibilitychange',gone,{once:true});addEventListener('pagehide',gone,{once:true});addEventListener('blur',gone,{once:true});
+  location.href=gm;
+  setTimeout(()=>{if(!left&&!document.hidden){toast('Google Maps isn’t installed, opening Apple Maps');location.href=am}},1600);
+}
+document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest('a[data-gm]');if(!a||!IOS)return;e.preventDefault();openMapsApp(a.dataset)},true);
 function gmapsURL(stops,mode){
   const enc=p=>p.temp?`${p.lat},${p.lng}`:encodeURIComponent(p.q);
+  if(mode==='place')return`https://www.google.com/maps/search/?api=1&query=${enc(stops[0])}`;
   const dest=stops[stops.length-1];let u=`https://www.google.com/maps/dir/?api=1&destination=${enc(dest)}&travelmode=${mode==='bike'?'bicycling':mode==='transit'?'transit':'walking'}`;
   const wp=stops.slice(0,-1).slice(0,3);if(wp.length)u+='&waypoints='+wp.map(enc).join('%7C');return u;
 }
@@ -946,10 +962,10 @@ function openCard(p,fromMap){
     ${p.w?`<p class="c-warn">${esc(p.w)}</p>`:''}
     ${pi.map(t=>`<div class="c-plan">${esc(t)}</div>`).join('')}
     ${p.a?`<div class="c-approx">Pin is approximate. Google Maps will find the exact door.</div>`:''}
-    ${zoneAt(p)?`<div class="c-red">This spot is inside ${esc(zoneAt(p).short)}, one of your red zones, so the app won’t route you here.</div><div class="c-actions"><a class="hb red fill" href="${uberURL(p)}" target="_blank" rel="noopener">Uber</a><a class="hb" href="${gmapsURL([p],'transit')}" target="_blank" rel="noopener">Public transport</a></div>`:`<div class="c-actions">
+    ${zoneAt(p)?`<div class="c-red">This spot is inside ${esc(zoneAt(p).short)}, one of your red zones, so the app won’t route you here.</div><div class="c-actions"><a class="hb red fill" href="${uberURL(p)}" target="_blank" rel="noopener">Uber</a><a class="hb" href="${gmapsURL([p],'transit')}" ${gmAttrs(p,'transit')} target="_blank" rel="noopener">Public transport</a></div>`:`<div class="c-actions">
       <button class="hb fill" data-go="foot">${UI.walk}Walk here</button>
       <button class="hb" data-go="bike">Bike here</button>
-      <a class="hb" href="${gmapsURL([p],'foot')}" target="_blank" rel="noopener">${UI.ext}Google Maps</a>
+      <a class="hb" href="${gmapsURL([p],'place')}" ${gmAttrs(p,'place')} target="_blank" rel="noopener">${UI.ext}Google Maps</a>
       ${p.u?`<a class="hb" href="${esc(p.u)}" target="_blank" rel="noopener">Info</a>`:''}
     </div>`}`;
   $('#card').classList.add('on');$('#card').scrollTop=0;
@@ -968,7 +984,7 @@ function openZoneCard(z,ctx){
     ${why?`<div class="c-red">${why}</div>`:''}
     <p class="c-note">${esc(z.note)}</p>
     <p class="c-quote">“${esc(z.q)}” <a href="${esc(z.src)}" target="_blank" rel="noopener">source</a></p>
-    ${red&&ctx?`<div class="c-actions"><a class="hb red fill" href="${uberURL(dest)}" target="_blank" rel="noopener">Uber to ${esc(dest.n)}</a><a class="hb" href="${gmapsURL([dest],'transit')}" target="_blank" rel="noopener">Public transport</a></div>`:''}`;
+    ${red&&ctx?`<div class="c-actions"><a class="hb red fill" href="${uberURL(dest)}" target="_blank" rel="noopener">Uber to ${esc(dest.n)}</a><a class="hb" href="${gmapsURL([dest],'transit')}" ${gmAttrs(dest,'transit')} target="_blank" rel="noopener">Public transport</a></div>`:''}`;
   $('#card').classList.add('on');$('#card').scrollTop=0;$('#card .x').onclick=closeCard;
 }
 let zoneIn=null;const zWarned={};
@@ -977,7 +993,7 @@ function zoneCheck(){
   if(z!==zoneIn){zoneIn=z;
     if(z){const dest=nav&&!zoneAt(nav.stops[nav.idx])?nav.stops[nav.idx]:PI.hotel;
       $('#zbT').textContent=`You’re inside ${z.short}. `;$('#zbS').textContent='This is one of your red zones. Head back the way you came, or get a ride out.';
-      $('#zbUber').href=uberURL(dest);$('#zbUber').textContent=`Uber to ${dest.n}`;$('#zbTransit').href=gmapsURL([dest],'transit');
+      $('#zbUber').href=uberURL(dest);$('#zbUber').textContent=`Uber to ${dest.n}`;setGm($('#zbTransit'),dest,'transit');
       b.hidden=false;speak(`Careful. You are inside ${z.short}, one of your red zones.`)}
     else b.hidden=true}
   if(!z)for(const r of RED){const d=distToRing(me,r.ring);
